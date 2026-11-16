@@ -1,0 +1,59 @@
+# Variables y archivos locales con credenciales.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.jks
+*.keystore
+
+# Dependencias y resultados de compilacion.
+node_modules/
+backend/dist/
+.dart_tool/
+.pub-cache/
+build/
+coverage/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/android/local.properties
+mobile/android/key.properties
+mobile/android/.private/
+mobile/ios/Pods/
+mobile/ios/Flutter/Generated.xcconfig
+mobile/ios/Flutter/flutter_export_environment.sh
+
+# Archivos temporales y configuracion personal.
+.tmp/
+tmp/
+.test-data/
+*.log
+.idea/
+.DS_Store
+Thumbs.db
+backups/
+deliverables/
+entregables/
+Desktop.ini
+# Datos de demostración y accesos privados locales
+.local/
+backend/.private/
+
+# Estado local de la web y herramientas de compilacion.
+.dev.vars*
+.gradle/
+.kotlin/
+ephemeral/
+dist/
+.next/
+.vinext/
+.wrangler/
+.sites-runtime/
+*.tsbuildinfo
+*.iml
+output/
+Entrega-Final-AutoRent/
+
+/AutoRent-completo*.zip
+/.codex/
+/.agents/

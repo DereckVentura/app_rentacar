@@ -1,0 +1,36 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: autorent
+      MYSQL_USER: autorent_app
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Completa DB_PASSWORD en el entorno}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Completa MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: [CMD-SHELL, 'mysqladmin ping -h localhost -u root -p"$$MYSQL_ROOT_PASSWORD" --silent']
+      interval: 10s
+      timeout: 5s
+      retries: 15
+  api:
+    build: .
+    ports: ['3000:3000']
+    depends_on:
+      mysql: {condition: service_healthy}
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: autorent
+      DB_USER: autorent_app
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SSL: 'false'
+      JWT_SECRET: ${JWT_SECRET:?Genera JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      DB_POOL_SIZE: 5
+    restart: unless-stopped
+volumes:
+  mysql_data:

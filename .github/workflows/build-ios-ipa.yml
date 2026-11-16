@@ -1,0 +1,29 @@
+name: Compilar AutoRent iOS sin firma
+on:
+  workflow_dispatch:
+jobs:
+  ios:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.8'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build ios --release --no-codesign --dart-define=API_BASE_URL=https://autorent-molina-univo-2026.civilchub131.chatgpt.site/api/v1
+      - name: Empaquetar aplicación sin firma
+        run: |
+          mkdir -p build/ipa/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ipa/Payload/
+          cd build/ipa
+          zip -r AutoRent-iOS.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AutoRent-iOS-sin-firma
+          path: mobile/build/ipa/AutoRent-iOS.ipa
+# La IPA requiere firma y aprovisionamiento Apple para instalarse en un iPhone.

@@ -1,0 +1,110 @@
+[
+  {
+    "TABLE_NAME": "alquileres",
+    "COLUMN_NAME": "entregado_por",
+    "REFERENCED_TABLE_NAME": "usuarios",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "alquileres",
+    "COLUMN_NAME": "recibido_por",
+    "REFERENCED_TABLE_NAME": "usuarios",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "alquileres",
+    "COLUMN_NAME": "reserva_id",
+    "REFERENCED_TABLE_NAME": "reservas",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "audit_events",
+    "COLUMN_NAME": "actor_id",
+    "REFERENCED_TABLE_NAME": "usuarios",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "legal_acceptances",
+    "COLUMN_NAME": "reserva_id",
+    "REFERENCED_TABLE_NAME": "reservas",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "legal_acceptances",
+    "COLUMN_NAME": "usuario_id",
+    "REFERENCED_TABLE_NAME": "usuarios",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "modelos",
+    "COLUMN_NAME": "marca_id",
+    "REFERENCED_TABLE_NAME": "marcas",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "notificaciones",
+    "COLUMN_NAME": "reserva_id",
+    "REFERENCED_TABLE_NAME": "reservas",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "notificaciones",
+    "COLUMN_NAME": "usuario_id",
+    "REFERENCED_TABLE_NAME": "usuarios",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "privacy_requests",
+    "COLUMN_NAME": "respondida_por",
+    "REFERENCED_TABLE_NAME": "usuarios",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "privacy_requests",
+    "COLUMN_NAME": "usuario_id",
+    "REFERENCED_TABLE_NAME": "usuarios",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "reservas",
+    "COLUMN_NAME": "cliente_id",
+    "REFERENCED_TABLE_NAME": "usuarios",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "reservas",
+    "COLUMN_NAME": "devolucion_id",
+    "REFERENCED_TABLE_NAME": "ubicaciones",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "reservas",
+    "COLUMN_NAME": "entrega_id",
+    "REFERENCED_TABLE_NAME": "ubicaciones",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "reservas",
+    "COLUMN_NAME": "vehiculo_id",
+    "REFERENCED_TABLE_NAME": "vehiculos",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "vehiculos",
+    "COLUMN_NAME": "categoria_id",
+    "REFERENCED_TABLE_NAME": "categorias",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "vehiculos",
+    "COLUMN_NAME": "modelo_id",
+    "REFERENCED_TABLE_NAME": "modelos",
+    "REFERENCED_COLUMN_NAME": "id"
+  },
+  {
+    "TABLE_NAME": "vehiculos",
+    "COLUMN_NAME": "ubicacion_actual_id",
+    "REFERENCED_TABLE_NAME": "ubicaciones",
+    "REFERENCED_COLUMN_NAME": "id"
+  }
+]

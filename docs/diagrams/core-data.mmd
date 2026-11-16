@@ -1,0 +1,12 @@
+erDiagram
+  USUARIOS ||--o{ RESERVAS : realiza
+  VEHICULOS ||--o{ RESERVAS : recibe
+  RESERVAS ||--o| ALQUILERES : origina
+  UBICACIONES ||--o{ RESERVAS : entrega_y_devolucion
+  MODELOS ||--o{ VEHICULOS : clasifica
+  MARCAS ||--o{ MODELOS : contiene
+  CATEGORIAS ||--o{ VEHICULOS : agrupa
+  USUARIOS ||--o{ NOTIFICACIONES : recibe
+  USUARIOS ||--o{ LEGAL_ACCEPTANCES : acepta
+  RESERVAS |o--o{ LEGAL_ACCEPTANCES : documenta
+  USUARIOS ||--o{ PRIVACY_REQUESTS : presenta

@@ -1,0 +1,7 @@
+flowchart TD
+  F[Flutter web y Android] -->|JSON y token| A[API Express TypeScript]
+  A --> V[Validación y permisos]
+  V --> S[Servicios y repositorios]
+  S -->|Transacciones y parámetros| D[(MySQL)]
+  A -->|Firma para administración| C[Almacenamiento de imágenes opcional]
+  F -->|Imágenes de mapa y atribución| O[OpenStreetMap]

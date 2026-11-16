@@ -1,0 +1,18 @@
+sequenceDiagram
+  actor C as Cliente
+  participant A as API
+  participant D as MySQL
+  C->>A: Consultar cotización
+  A->>D: Leer tarifa y conflictos
+  A-->>C: Fechas días tarifa total
+  C->>A: Confirmar precio documentos y clave de operación
+  A->>D: BEGIN y bloqueo de vehículo
+  A->>D: Verificar usuario estado período ubicaciones y precio
+  alt Existe conflicto
+    A->>D: ROLLBACK
+    A-->>C: 409 y nueva consulta
+  else Operación válida
+    A->>D: Reserva aviso auditoría y aceptación
+    A->>D: COMMIT
+    A-->>C: Confirmación e historial
+  end

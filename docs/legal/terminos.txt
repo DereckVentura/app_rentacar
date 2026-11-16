@@ -1,0 +1,16 @@
+Condiciones de uso académico
+Versión SHA-256: f7abe715b084a0eb488fe4ce77f0bb1e1cecd85ce6df2c8b146fdea4a0117d1b
+
+Proyecto universitario AutoRent con la presentación Rent a Car Molina. Rent a Car Molina. Mercado Municipal de La Unión, La Unión, La Unión Sur. Teléfono: +503 7149 2867. Correo de privacidad: pendiente de designación. La mención de la marca y sus datos no acredita una representación comercial ni una licencia para vender el software con esa marca.
+
+Las acciones de registro, reserva, cancelación, entrega y devolución son simulaciones académicas. No constituyen contratación de alquiler, garantía de disponibilidad real, factura, cobro o cobertura de seguro. El vehículo, sus documentos y la versión exacta requieren verificación del negocio.
+
+Crea únicamente cuentas de prueba que controles. Mantén la contraseña privada, no suplantes personas y no cargues documentos personales ni contenido sin permiso. El administrador puede corregir o retirar datos de demostración y desactivar accesos indebidos.
+
+La información de precios, requisitos de conductor, seguros, depósitos, kilometraje incluido, combustible, impuestos, medios de pago, entregas, asistencia y viajes fuera del país está pendiente de definición comercial. La ausencia de una condición no significa que el servicio sea gratuito o que una cobertura esté incluida.
+
+Reservas de prueba: se presenta un resumen con vehículo, lugares, fechas y total calculado antes de confirmar. Las fracciones de 24 horas se redondean a un día. El servidor evita solapamientos de reservas confirmadas y exige volver a consultar el precio si cambia. Puedes consultar la confirmación y cancelarla antes del inicio en Mis reservas. Las acciones de entrega y devolución requieren administración.
+
+Para dudas o reclamos utiliza el teléfono informado o Cuenta → Privacidad y mis datos → Reclamo. El sistema conserva la constancia y la respuesta dentro de tu cuenta. No se procesan pagos ni devoluciones de dinero. Estos términos no excluyen derechos irrenunciables ni sustituyen las condiciones y el contrato de un futuro servicio comercial.
+
+Antes de ofrecer servicios reales: identificar al proveedor y responsable de datos, publicar condiciones completas y precios finales, comprobar permisos de marca y fotografías, definir contrato y seguro y realizar revisión jurídica y de seguridad. No usar esta demostración para aceptar dinero o documentos de clientes reales.

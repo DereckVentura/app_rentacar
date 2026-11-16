@@ -1,0 +1,18 @@
+Aviso de privacidad de la demostración
+Versión SHA-256: f7abe715b084a0eb488fe4ce77f0bb1e1cecd85ce6df2c8b146fdea4a0117d1b
+
+Alcance: proyecto universitario AutoRent. No es una plataforma comercial habilitada. Usa datos ficticios; no introduzcas documentos de identidad, datos de tarjetas, información médica ni datos de terceros. Este aviso describe las funciones implementadas y deberá adaptarse antes de tratar datos de clientes reales.
+
+Identificación y contacto informado: Rent a Car Molina. Mercado Municipal de La Unión, La Unión, La Unión Sur. Teléfono: +503 7149 2867. Correo de privacidad: pendiente de designación. La persona responsable del tratamiento de clientes reales aún debe identificarse antes de la explotación comercial.
+
+Datos y finalidades: nombre, apellidos, correo y teléfono opcional para crear una cuenta; contraseña guardada como hash; reservas, alquileres de prueba, avisos y aceptación de documentos para demostrar la operación. Las solicitudes de privacidad y reclamos incluyen el texto que decidas enviar. El servidor utiliza la dirección IP para limitar intentos de acceso. No se solicitan ubicación del dispositivo, fotos de DUI o licencia ni pagos de clientes.
+
+Acceso y proveedores: cada cliente accede a su información; las cuentas administradoras autorizadas gestionan la flota, reservas y solicitudes. El catálogo es público. Las fotos de vehículos son públicas y no deben contener datos personales innecesarios. No hay publicidad, venta de datos ni análisis de comportamiento. El mapa obtiene imágenes de OpenStreetMap cuando lo abres, lo que comunica tu IP a ese proveedor. El alojamiento y los proveedores de base de datos o imágenes deberán identificarse con su ubicación y condiciones antes de publicar para uso real.
+
+Almacenamiento local y seguridad: se guarda un token de sesión en almacenamiento seguro compatible con la plataforma para mantener el acceso. Al cerrar sesión se elimina del dispositivo. No se usan cookies de publicidad. El servidor aplica controles de acceso, límites de intentos y contraseñas con hash. La versión pública deberá usar HTTPS y configurar copias de seguridad y acceso restringido.
+
+Conservación: esta demostración no establece un archivo comercial de clientes. El administrador deberá retirar los datos de prueba al terminar la evaluación y revisar las copias de seguridad. Antes del uso real se aprobará un calendario de conservación que respete obligaciones legales, fiscales y contractuales. Una solicitud de supresión no elimina automáticamente pruebas que deban conservarse legítimamente; cualquier excepción deberá explicarse y limitarse.
+
+Tus derechos: desde Cuenta → Privacidad y mis datos puedes consultar y copiar tus datos y presentar solicitudes de acceso, rectificación, supresión, oposición, portabilidad, olvido, limitación y retiro de consentimiento. Recibes un número de constancia y puedes revisar la respuesta. También puedes usar el contacto informado para reclamar o pedir asistencia si no puedes acceder a tu cuenta. La administración debe verificar la identidad de forma proporcionada y responder dentro de los plazos legales aplicables. Retirar el consentimiento no afecta la licitud del tratamiento previo ni suprime obligaciones de conservación.
+
+Cambios: antes de registrarte o confirmar una reserva se presenta la versión vigente. Conservamos el texto aceptado, su huella SHA-256, el contexto y la fecha. Las modificaciones posteriores no sustituyen esa constancia. No se solicita autorización para publicidad ni se condiciona el acceso a aceptar comunicaciones comerciales.

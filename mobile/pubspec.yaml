@@ -1,0 +1,38 @@
+name: autorent
+description: "AutoRent · Alquiler de vehículos."
+publish_to: 'none'
+version: 0.2.0+2
+
+environment:
+  sdk: ^3.13.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_map: ^8.3.2
+  flutter_secure_storage: ^11.2.0
+  google_fonts: ^6.3.3
+  http: ^1.6.0
+  image_picker: ^1.2.4
+  intl: ^0.20.3
+  latlong2: ^0.10.1
+  web: ^1.1.1
+  url_launcher: ^6.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/fonts/
+    - assets/brand/
+    - assets/vehicles/
+  fonts:
+    - family: CormorantGaramond
+      fonts:
+        - asset: assets/fonts/CormorantGaramond.ttf
