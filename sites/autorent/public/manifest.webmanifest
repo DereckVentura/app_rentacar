@@ -1,0 +1,12 @@
+{
+  "id": "/",
+  "name": "AutoRent · Rent a Car Molina",
+  "short_name": "AutoRent",
+  "lang": "es-SV",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0d100e",
+  "theme_color": "#0d100e",
+  "icons": [{"src":"/brand/logo.png","sizes":"any","type":"image/png"}]
+}

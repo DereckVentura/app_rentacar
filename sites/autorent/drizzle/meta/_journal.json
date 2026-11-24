@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1793523736277,
+      "tag": "0000_dapper_zemo",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1794246352408,
+      "tag": "0001_small_tarot",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794866400000,
+      "tag": "0002_reservation_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1795323404540,
+      "tag": "0003_zippy_cable",
+      "breakpoints": true
+    }
+  ]
+}
