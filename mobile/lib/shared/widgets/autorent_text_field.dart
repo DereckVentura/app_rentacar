@@ -12,6 +12,7 @@ class AutoRentTextField extends StatelessWidget {
     this.enabled = true,
     this.onChanged,
     this.autofillHints,
+    this.suffixIcon,
   });
   final String label;
   final TextEditingController? controller;
@@ -21,6 +22,7 @@ class AutoRentTextField extends StatelessWidget {
   final int maxLines;
   final ValueChanged<String>? onChanged;
   final Iterable<String>? autofillHints;
+  final Widget? suffixIcon;
   @override
   Widget build(BuildContext context) => TextFormField(
     controller: controller,
@@ -31,8 +33,9 @@ class AutoRentTextField extends StatelessWidget {
     maxLines: maxLines,
     onChanged: onChanged,
     autofillHints: autofillHints,
-    autocorrect: !obscure,
-    enableSuggestions: !obscure,
-    decoration: InputDecoration(labelText: label),
+    autocorrect: !obscure && keyboardType != TextInputType.visiblePassword,
+    enableSuggestions:
+        !obscure && keyboardType != TextInputType.visiblePassword,
+    decoration: InputDecoration(labelText: label, suffixIcon: suffixIcon),
   );
 }

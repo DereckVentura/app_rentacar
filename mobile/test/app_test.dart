@@ -163,7 +163,7 @@ void main() {
     expect(tester.takeException(), isNull);
     api.dispose();
   });
-  testWidgets('acceso envía las credenciales y guarda accessToken real', (
+  testWidgets('acceso guarda el token al elegir recordar la sesión', (
     tester,
   ) async {
     Json? sent;
@@ -192,10 +192,16 @@ void main() {
       find.byType(TextFormField).at(1),
       'Una frase larga de prueba',
     );
+    final remember = find.widgetWithText(CheckboxListTile, 'Recordar sesión');
+    expect(tester.widget<CheckboxListTile>(remember).value, isFalse);
+    await tester.ensureVisible(remember);
+    await tester.tap(remember);
+    await tester.pump();
     await tester.ensureVisible(find.widgetWithText(FilledButton, 'Ingresar'));
     await tester.tap(find.widgetWithText(FilledButton, 'Ingresar'));
     await tester.pumpAndSettle();
     expect(sent!['email'], 'cliente@example.test');
+    expect(sent!['recordar'], isTrue);
     expect(api.token, 'token-de-prueba');
     expect(
       await const FlutterSecureStorage().read(key: 'autorent_token'),

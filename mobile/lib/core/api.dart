@@ -90,6 +90,28 @@ class Api {
     return response.bodyBytes;
   }
 
+  Future<String> uploadFleetPhoto(Uint8List bytes) async {
+    final response = await _client
+        .post(
+          Uri.parse('$base/admin/fleet-photos'),
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            if (token != null) 'Authorization': 'Bearer $token',
+          },
+          body: bytes,
+        )
+        .timeout(const Duration(seconds: 35));
+    final envelope = jsonDecode(response.body) as Json;
+    if (response.statusCode >= 400) {
+      throw ApiException(
+        envelope['error']?['message']?.toString() ??
+            'No se pudo subir la foto.',
+        response.statusCode,
+      );
+    }
+    return envelope['data']['url'] as String;
+  }
+
   void dispose() {
     _client.close();
     offline.dispose();

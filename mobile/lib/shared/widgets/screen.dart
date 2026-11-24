@@ -85,7 +85,8 @@ class HintBox extends StatelessWidget {
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: AppColors.surface,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(17),
+      border: Border.all(color: AppColors.border),
     ),
     child: Text(text),
   );

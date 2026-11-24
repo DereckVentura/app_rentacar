@@ -23,7 +23,7 @@ class AccessPage extends StatefulWidget {
 }
 
 class _AccessPageState extends State<AccessPage> {
-  bool register = false, visible = false;
+  bool register = false, visible = false, remember = false;
   Json? acceptance;
   final email = TextEditingController(),
       password = TextEditingController(),
@@ -76,28 +76,33 @@ class _AccessPageState extends State<AccessPage> {
           autofillHints: const [AutofillHints.email],
           validator: requiredText,
         ),
-        Row(
-          children: [
-            Expanded(
-              child: AutoRentTextField(
-                label: 'Contraseña',
-                controller: password,
-                obscure: !visible,
-                validator: requiredText,
-                autofillHints: [
-                  register ? AutofillHints.newPassword : AutofillHints.password,
-                ],
-              ),
-            ),
-            IconButton(
-              tooltip: visible ? 'Ocultar contraseña' : 'Ver contraseña',
-              onPressed: () => setState(() {
-                visible = !visible;
-              }),
-              icon: Icon(visible ? Icons.visibility_off : Icons.visibility),
-            ),
+        AutoRentTextField(
+          label: 'Contraseña',
+          controller: password,
+          obscure: !visible,
+          keyboardType: TextInputType.visiblePassword,
+          validator: requiredText,
+          autofillHints: [
+            register ? AutofillHints.newPassword : AutofillHints.password,
           ],
+          suffixIcon: IconButton(
+            tooltip: visible ? 'Ocultar contraseña' : 'Ver contraseña',
+            onPressed: () => setState(() => visible = !visible),
+            icon: Icon(
+              visible
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+            ),
+            color: Theme.of(context).colorScheme.primary,
+          ),
         ),
+        if (!register)
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: remember,
+            title: const Text('Recordar sesión'),
+            onChanged: (value) => setState(() => remember = value ?? false),
+          ),
         if (register)
           const Text(
             'Usa una contraseña de al menos 8 caracteres (máximo 72 bytes).',
@@ -105,6 +110,7 @@ class _AccessPageState extends State<AccessPage> {
         TextButton(
           onPressed: () => setState(() {
             register = !register;
+            visible = false;
           }),
           child: Text(register ? 'Ya tengo una cuenta' : 'Crear una cuenta'),
         ),
@@ -136,6 +142,7 @@ class _AccessPageState extends State<AccessPage> {
           body: {
             'email': email.text.trim(),
             'password': password.text,
+            if (!register) 'recordar': remember,
             if (register) ...{
               'nombres': names.text.trim(),
               'apellidos': surname.text.trim(),
@@ -152,6 +159,7 @@ class _AccessPageState extends State<AccessPage> {
                   body: credentials,
                 )
               : result,
+          remember: !register && remember,
         );
       },
     );

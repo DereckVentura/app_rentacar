@@ -34,6 +34,10 @@ class _LocationsPageState extends State<LocationsPage> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             Text(location['direccion'].toString()),
+            if (location['ciudad']?.toString().isNotEmpty == true)
+              Text(location['ciudad'].toString()),
+            if (location['indicaciones']?.toString().isNotEmpty == true)
+              Text(location['indicaciones'].toString()),
             const SizedBox(height: 16),
             FilledButton.icon(
               icon: const Icon(Icons.open_in_new),
@@ -55,6 +59,8 @@ class _LocationsPageState extends State<LocationsPage> {
     final api = AppScope.of(context).api;
     final name = TextEditingController(text: item?['nombre']),
         address = TextEditingController(text: item?['direccion']),
+        city = TextEditingController(text: item?['ciudad']),
+        directions = TextEditingController(text: item?['indicaciones']),
         lat = TextEditingController(text: item?['latitud']?.toString()),
         lng = TextEditingController(text: item?['longitud']?.toString());
     String type = item?['tipo'] as String? ?? 'sucursal';
@@ -75,6 +81,12 @@ class _LocationsPageState extends State<LocationsPage> {
               controller: address,
               validator: requiredText,
               maxLines: 2,
+            ),
+            AutoRentTextField(label: 'Ciudad', controller: city),
+            AutoRentTextField(
+              label: 'Indicaciones',
+              controller: directions,
+              maxLines: 3,
             ),
             DropdownButtonFormField<String>(
               initialValue: type,
@@ -128,6 +140,8 @@ class _LocationsPageState extends State<LocationsPage> {
                 'nombre': name.text.trim(),
                 'tipo': type,
                 'direccion': address.text.trim(),
+                'ciudad': city.text.trim(),
+                'indicaciones': directions.text.trim(),
                 'latitud': lat.text.trim(),
                 'longitud': lng.text.trim(),
                 'activo': active,
@@ -137,10 +151,28 @@ class _LocationsPageState extends State<LocationsPage> {
         ),
       ),
     );
-    for (final c in [name, address, lat, lng]) {
+    for (final c in [name, address, city, directions, lat, lng]) {
       c.dispose();
     }
     if (ok == true) dataKey.currentState?.reload();
+  }
+
+  Future<void> remove(Json location) async {
+    if (!await confirm(
+          context,
+          'Eliminar ubicación',
+          'El punto dejará de estar disponible para nuevas reservas.',
+        ) ||
+        !mounted) {
+      return;
+    }
+    try {
+      await AppScope.of(context).api
+          .call('/admin/locations/${location['id']}', method: 'DELETE');
+      if (mounted) dataKey.currentState?.reload();
+    } catch (error) {
+      if (mounted) tell(context, error);
+    }
   }
 
   @override
@@ -238,7 +270,11 @@ class _LocationsPageState extends State<LocationsPage> {
                     '${l['direccion']}\n${l['tipo'] == 'sucursal' ? 'Sucursal' : 'Punto autorizado'}${l['activo'] == true ? '' : ' · Inactiva'}',
                   ),
                   trailing: widget.admin
-                      ? const Icon(Icons.edit_outlined)
+                      ? IconButton(
+                          tooltip: 'Eliminar ubicación',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => remove(l),
+                        )
                       : null,
                   onTap: widget.admin ? () => edit(l) : () => showLocation(l),
                 ),

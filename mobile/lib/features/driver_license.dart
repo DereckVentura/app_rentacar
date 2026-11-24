@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -16,17 +17,15 @@ class DriverLicenseForm extends StatefulWidget {
 }
 
 class _DriverLicenseFormState extends State<DriverLicenseForm> {
-  final holder = TextEditingController(),
-      country = TextEditingController(text: 'El Salvador'),
-      expiry = TextEditingController();
+  final holder = TextEditingController(), year = TextEditingController();
+  int? month;
   Uint8List? front, back;
   bool consent = false, busy = false, saved = false;
   String? error;
   @override
   void dispose() {
     holder.dispose();
-    country.dispose();
-    expiry.dispose();
+    year.dispose();
     super.dispose();
   }
 
@@ -39,11 +38,34 @@ class _DriverLicenseFormState extends State<DriverLicenseForm> {
         imageQuality: 90,
       );
       if (file == null) return;
-      final bytes = await file.readAsBytes();
+      final original = await file.readAsBytes();
+      final bytes = source == ImageSource.camera
+          ? await cropDocument(original)
+          : original;
       if (bytes.length > 3 * 1024 * 1024) {
         throw const ApiException('La imagen debe pesar como máximo 3 MB.');
       }
       if (!mounted) return;
+      final accepted = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: const Text('Revisa la foto'),
+          content: Image.memory(bytes, fit: BoxFit.contain),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialog, false),
+              child: const Text('Repetir foto'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialog, true),
+              child: const Text('Usar esta foto'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (accepted == false) return await pick(reverse, source);
+      if (accepted != true) return;
       setState(() {
         if (reverse) {
           back = bytes;
@@ -56,6 +78,54 @@ class _DriverLicenseFormState extends State<DriverLicenseForm> {
       widget.onSaved(null);
     } catch (e) {
       if (mounted) tell(context, e);
+    }
+  }
+
+  Future<Uint8List> cropDocument(Uint8List original) async {
+    final codec = await ui.instantiateImageCodec(original);
+    try {
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+      try {
+        const ratio = 85.6 / 53.98;
+        final width = image.width < image.height * ratio
+            ? image.width.toDouble()
+            : image.height * ratio;
+        final height = width / ratio;
+        final source = Rect.fromCenter(
+          center: Offset(image.width / 2, image.height / 2),
+          width: width,
+          height: height,
+        );
+        final outWidth = width > 950 ? 950 : width.round();
+        final outHeight = (outWidth / ratio).round();
+        final recorder = ui.PictureRecorder();
+        Canvas(recorder).drawImageRect(
+          image,
+          source,
+          Rect.fromLTWH(0, 0, outWidth.toDouble(), outHeight.toDouble()),
+          Paint()..filterQuality = FilterQuality.medium,
+        );
+        final picture = recorder.endRecording();
+        try {
+          final result = await picture.toImage(outWidth, outHeight);
+          try {
+            final png = await result.toByteData(format: ui.ImageByteFormat.png);
+            if (png == null) {
+              throw const ApiException('No se pudo recortar la foto.');
+            }
+            return png.buffer.asUint8List(png.offsetInBytes, png.lengthInBytes);
+          } finally {
+            result.dispose();
+          }
+        } finally {
+          picture.dispose();
+        }
+      } finally {
+        image.dispose();
+      }
+    } finally {
+      codec.dispose();
     }
   }
 
@@ -89,32 +159,35 @@ class _DriverLicenseFormState extends State<DriverLicenseForm> {
                 labelText: 'Nombre completo del titular',
               ),
             ),
-            TextField(
-              controller: country,
-              decoration: const InputDecoration(labelText: 'País emisor'),
+            DropdownButtonFormField<int>(
+              initialValue: month,
+              decoration: const InputDecoration(
+                labelText: 'Mes de vencimiento',
+              ),
+              items: [
+                for (var value = 1; value <= 12; value++)
+                  DropdownMenuItem(
+                    value: value,
+                    child: Text(value.toString().padLeft(2, '0')),
+                  ),
+              ],
+              onChanged: busy ? null : (value) => setState(() => month = value),
             ),
             TextField(
-              controller: expiry,
-              readOnly: true,
+              controller: year,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
               decoration: const InputDecoration(
-                labelText: 'Vencimiento de la licencia',
+                labelText: 'Año de vencimiento',
+                hintText: 'AAAA',
               ),
-              onTap: () async {
-                final now = DateTime.now();
-                final day = await showDatePicker(
-                  context: context,
-                  firstDate: DateTime(now.year, now.month, now.day),
-                  lastDate: DateTime(now.year + 30),
-                );
-                if (day != null) {
-                  expiry.text =
-                      '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
-                }
-              },
             ),
             for (final reverse in [false, true]) ...[
               Text(
                 reverse ? 'Reverso de la licencia' : 'Frente de la licencia',
+              ),
+              const Text(
+                'Centra la licencia en la cámara y deja los bordes visibles.',
               ),
               if ((reverse ? back : front) != null)
                 Image.memory(
@@ -139,6 +212,22 @@ class _DriverLicenseFormState extends State<DriverLicenseForm> {
                     icon: const Icon(Icons.photo_library_outlined),
                     label: const Text('Cargar imagen'),
                   ),
+                  if ((reverse ? back : front) != null)
+                    TextButton(
+                      onPressed: busy
+                          ? null
+                          : () {
+                              setState(() {
+                                if (reverse) {
+                                  back = null;
+                                } else {
+                                  front = null;
+                                }
+                              });
+                              widget.onSaved(null);
+                            },
+                      child: const Text('Quitar foto'),
+                    ),
                 ],
               ),
             ],
@@ -161,11 +250,14 @@ class _DriverLicenseFormState extends State<DriverLicenseForm> {
               onPressed: busy
                   ? null
                   : () async {
+                      final enteredYear = int.tryParse(year.text);
                       if (front == null ||
                           back == null ||
                           holder.text.trim().isEmpty ||
-                          country.text.trim().isEmpty ||
-                          expiry.text.isEmpty ||
+                          month == null ||
+                          enteredYear == null ||
+                          enteredYear < 2000 ||
+                          enteredYear > DateTime.now().year + 30 ||
                           !consent) {
                         setState(
                           () => error = 'Completa los datos, adjunta ambas caras y autoriza su revisión.',
@@ -183,8 +275,12 @@ class _DriverLicenseFormState extends State<DriverLicenseForm> {
                           method: 'POST',
                           body: {
                             'titular': holder.text.trim(),
-                            'pais': country.text.trim(),
-                            'vencimiento': expiry.text,
+                            'pais': 'El Salvador',
+                            'vencimiento': DateTime(
+                              enteredYear,
+                              month! + 1,
+                              0,
+                            ).toIso8601String().split('T').first,
                             'consentimiento': true,
                             'frente': base64Encode(front!),
                             'reverso': base64Encode(back!),

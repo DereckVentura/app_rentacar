@@ -19,6 +19,9 @@ import 'legal.dart';
 
 const states = {
   'pendiente': 'Pendiente de validación',
+  'lista_para_aprobar': 'Listo para aprobar',
+  'denegada': 'Denegada',
+  'denegada_automatica': 'Denegada automáticamente',
   'vencida': 'Vencida',
   'confirmada': 'Confirmada',
   'en_curso': 'En curso',
@@ -30,13 +33,26 @@ Widget reservationState(dynamic state) => Chip(
   label: Text(states[state] ?? state.toString()),
   side: BorderSide.none,
   backgroundColor:
-      (state == 'cancelada' || state == 'no_presentado'
+      ([
+                'cancelada',
+                'no_presentado',
+                'denegada',
+                'denegada_automatica',
+              ].contains(state)
               ? AppColors.error
               : state == 'en_curso'
               ? AppColors.gold
               : AppColors.success)
           .withValues(alpha: .18),
 );
+
+String validationPeriod(dynamic raw) {
+  final minutes = (raw as num?)?.toInt() ?? 180;
+  if (minutes % 60 != 0) return '$minutes minutos';
+  final hours = minutes ~/ 60;
+  return '$hours ${hours == 1 ? 'hora' : 'horas'}';
+}
+
 Future<DateTime?> pickMoment(
   BuildContext context,
   DateTime? initial, {
@@ -296,8 +312,8 @@ class _ReservePageState extends State<ReservePage> {
                 HintBox(
                   '${quote!['dias_cobrados']} días × USD ${quote!['precio_dia']}\nTotal: USD ${quote!['total']}',
                 ),
-                const HintBox(
-                  'Tu reserva quedará pendiente. El administrador dispone de 3 horas para validarla.',
+                HintBox(
+                  'El administrador dispone de ${validationPeriod(quote!['minutos'])} para validar la solicitud.',
                 ),
                 const PaymentInfo(),
                 DriverLicenseForm(
@@ -333,7 +349,7 @@ class _ReservePageState extends State<ReservePage> {
                           if (!await confirm(
                                 context,
                                 'Solicitar reserva',
-                                'Total USD ${quote!['total']}. Quedará pendiente de validación durante 3 horas. Si no se valida, vencerá y liberará las fechas.',
+                                'Total USD ${quote!['total']}. El plazo de validación es de ${validationPeriod(quote!['minutos'])}. Si vence, se liberan las fechas.',
                               ) ||
                               !context.mounted) {
                             return;
@@ -364,7 +380,7 @@ class _ReservePageState extends State<ReservePage> {
                             if (context.mounted) {
                               tell(
                                 context,
-                                'Reserva pendiente de validación por 3 horas. Puedes verla en Mis reservas.',
+                                'Consulta el estado de la solicitud en Mis reservas.',
                               );
                               await Navigator.pushReplacement(
                                 context,
@@ -408,7 +424,18 @@ class ReservationsPage extends StatefulWidget {
 
 class _ReservationsPageState extends State<ReservationsPage> {
   int page = 1, revision = 0;
-  String state = '';
+  String state = '', search = '';
+  final searchInput = TextEditingController();
+  @override
+  void dispose() {
+    searchInput.dispose();
+    super.dispose();
+  }
+
+  void filter(String input) => setState(() {
+    search = input.trim();
+    page = 1;
+  });
   @override
   Widget build(BuildContext context) {
     final session = AppScope.of(context);
@@ -426,13 +453,14 @@ class _ReservationsPageState extends State<ReservationsPage> {
       );
     }
     return DataView(
-      key: ValueKey('$page$state$revision${session.user!['id']}'),
+      key: ValueKey((page, state, search, revision, session.user!['id'])),
       load: () => session.api.call(
         '/reservations',
         query: {
           'page': '$page',
           'limit': '20',
           if (state.isNotEmpty) 'estado': state,
+          if (search.isNotEmpty) 'buscar': search,
         },
       ),
       builder: (data) {
@@ -442,6 +470,21 @@ class _ReservationsPageState extends State<ReservationsPage> {
             Text(
               session.admin ? 'Reservas y alquileres' : 'Mis reservas',
               style: Theme.of(context).textTheme.headlineLarge,
+            ),
+            TextField(
+              controller: searchInput,
+              onSubmitted: filter,
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                labelText: session.admin
+                    ? 'Código o nombre del cliente'
+                    : 'Código de reserva',
+                suffixIcon: IconButton(
+                  tooltip: 'Buscar',
+                  icon: const Icon(Icons.search),
+                  onPressed: () => filter(searchInput.text),
+                ),
+              ),
             ),
             DropdownButtonFormField<String>(
               initialValue: state,
@@ -463,9 +506,14 @@ class _ReservationsPageState extends State<ReservationsPage> {
               (r) => Card(
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(16),
-                  title: Text('${r['vehiculo_nombre']} · ${value(r['color'])}'),
+                  title: Text(
+                    session.admin
+                        ? value(r['cliente_nombre'])
+                        : '${r['vehiculo_nombre']} · ${value(r['color'])}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   subtitle: Text(
-                    '${states[r['estado']]}\n${dateLabel(r['inicio_utc'])}\nUSD ${r['total']}${session.admin ? '\n${r['cliente_nombre']}' : ''}',
+                    '${r['codigo']} · ${states[r['estado']]}\n${dateLabel(r['inicio_utc'])}\nUSD ${r['total']}${session.admin ? '\n${r['vehiculo_nombre']}' : ''}',
                   ),
                   trailing: reservationState(r['estado']),
                   onTap: () async {
@@ -563,6 +611,14 @@ class _ReservationDetailState extends State<ReservationDetail> {
         dataKey.currentState?.reload();
       }
     }
+  }
+
+  Future<void> deny() async {
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => DenyReservationPage(id: widget.id)),
+    );
+    if (mounted) dataKey.currentState?.reload();
   }
 
   Future<void> cancel() async {
@@ -706,20 +762,38 @@ class _ReservationDetailState extends State<ReservationDetail> {
                 r['vehiculo_nombre'].toString(),
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
+              if (session.admin)
+                Text(
+                  'Cliente: ${r['cliente_nombre']}',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
               SelectableText('Código ${r['codigo']}'),
               reservationState(r['estado']),
-              if (r['estado'] == 'pendiente')
+              if (r['review_note'] != null)
+                HintBox(r['review_note'].toString()),
+              if (r['vence_en'] != null)
                 ReservationCountdown(
                   reservation: r,
                   onExpired: () => dataKey.currentState?.reload(),
                 ),
               const PaymentInfo(),
-              if (session.admin && r['estado'] == 'pendiente')
+              if (session.admin &&
+                  [
+                    'pendiente',
+                    'lista_para_aprobar',
+                    'denegada_automatica',
+                  ].contains(r['estado'])) ...[
                 AutoRentButton(
-                  label: 'Validar reserva',
+                  label: 'Completar reserva',
                   loading: busy,
                   onPressed: busy ? null : validate,
                 ),
+                AutoRentButton(
+                  label: 'Denegar reserva',
+                  secondary: true,
+                  onPressed: busy ? null : deny,
+                ),
+              ],
               TextButton.icon(
                 icon: const Icon(Icons.copy),
                 label: const Text('Copiar código de reserva'),
@@ -729,6 +803,10 @@ class _ReservationDetailState extends State<ReservationDetail> {
                   );
                   if (context.mounted) tell(context, 'Código copiado.');
                 },
+              ),
+              Text(
+                'Días reservados',
+                style: Theme.of(context).textTheme.titleLarge,
               ),
               HintBox(
                 '${states[r['estado']]}${late ? ' · Devolución atrasada' : ''}\nEntrega: ${dateLabel(r['inicio_utc'])}\n${r['entrega_nombre']}\nDevolución: ${dateLabel(r['fin_utc'])}\n${r['devolucion_nombre']}',
@@ -747,7 +825,11 @@ class _ReservationDetailState extends State<ReservationDetail> {
                 ),
               if (r['motivo_cancelacion'] != null)
                 Text('Motivo: ${r['motivo_cancelacion']}'),
-              if (['pendiente', 'confirmada'].contains(r['estado']) &&
+              if ([
+                    'pendiente',
+                    'lista_para_aprobar',
+                    'confirmada',
+                  ].contains(r['estado']) &&
                   (session.admin ||
                       DateTime.parse(r['inicio_utc'].toString())
                           .isAfter(DateTime.now())))
@@ -769,11 +851,61 @@ class _ReservationDetailState extends State<ReservationDetail> {
                 ),
               if (r['documento'] != null)
                 DriverLicenseReview(document: r['documento'] as Json),
-              if (session.admin) Text('Cliente: ${r['cliente_nombre']}'),
             ],
           );
         },
       ),
     );
   }
+}
+
+class DenyReservationPage extends StatefulWidget {
+  const DenyReservationPage({required this.id, super.key});
+  final int id;
+  @override
+  State<DenyReservationPage> createState() => _DenyReservationPageState();
+}
+
+class _DenyReservationPageState extends State<DenyReservationPage> {
+  final reason = TextEditingController();
+  @override
+  void dispose() {
+    reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FormPage(
+    title: 'Denegar reserva',
+    label: 'Confirmar denegación',
+    fields: [
+      Wrap(
+        spacing: 8,
+        children: [
+          for (final text in [
+            'Documento inválido',
+            'Licencia vencida',
+            'Foto borrosa',
+          ])
+            OutlinedButton(
+              onPressed: () => reason.text = text,
+              child: Text(text),
+            ),
+        ],
+      ),
+      AutoRentTextField(
+        label: 'Motivo',
+        controller: reason,
+        maxLines: 3,
+        validator: requiredText,
+      ),
+    ],
+    save: () async {
+      await AppScope.of(context).api.call(
+        '/admin/reservations/${widget.id}/deny',
+        method: 'POST',
+        body: {'motivo': reason.text.trim()},
+      );
+    },
+  );
 }

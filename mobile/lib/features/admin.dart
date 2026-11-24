@@ -49,6 +49,48 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
+  Future<void> editDeadline() async {
+    final api = AppScope.of(context).api;
+    TextEditingController? deadline;
+    try {
+      final settings = await api.call('/reservation-settings');
+      if (!mounted) return;
+      final input = TextEditingController(text: settings['minutos'].toString());
+      deadline = input;
+      await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FormPage(
+            title: 'Plazo para validar',
+            fields: [
+              AutoRentTextField(
+                label: 'Minutos para validar una reserva',
+                controller: input,
+                keyboardType: TextInputType.number,
+                validator: requiredText,
+              ),
+            ],
+            save: () async {
+              final minutes = int.tryParse(input.text.trim());
+              if (minutes == null || minutes < 1 || minutes > 1440) {
+                throw const ApiException('Escribe entre 1 y 1440 minutos.');
+              }
+              await api.call(
+                '/admin/reservation-settings',
+                method: 'PUT',
+                body: {'minutos': minutes},
+              );
+            },
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) tell(context, error);
+    } finally {
+      deadline?.dispose();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = AppScope.of(context);
@@ -101,6 +143,12 @@ class _AdminPageState extends State<AdminPage> {
                 context,
                 MaterialPageRoute(builder: (_) => const PaymentEditor()),
               ),
+            ),
+            AutoRentButton(
+              label: 'Plazo para validar reservas',
+              icon: Icons.timer_outlined,
+              secondary: true,
+              onPressed: editDeadline,
             ),
             if (rows.isEmpty)
               const HintBox(
@@ -229,7 +277,9 @@ class _VehicleEditorState extends State<VehicleEditor> {
     }
     category = v['categoria_id'] as int?;
     location = v['ubicacion_actual_id'] as int?;
-    state = v['estado_operativo'] as String? ?? 'inactivo';
+    state = v['estado_operativo'] == 'disponible'
+        ? 'operativo'
+        : v['estado_operativo'] as String? ?? 'inactivo';
     published = v['publicado'] as bool? ?? false;
     verified = f['anio_verificado'] as bool? ?? false;
     traction = f['traccion'] as String?;
@@ -272,7 +322,7 @@ class _VehicleEditorState extends State<VehicleEditor> {
     Map<String, String> options,
     ValueChanged<String?> change,
   ) => DropdownButtonFormField<String>(
-    initialValue: current ?? '',
+    initialValue: options.containsKey(current) ? current : '',
     isExpanded: true,
     decoration: InputDecoration(labelText: label),
     items: [
@@ -285,8 +335,11 @@ class _VehicleEditorState extends State<VehicleEditor> {
       change(v == '' ? null : v);
     },
   );
-  Future<void> addPhoto() async {
-    if (photos.length >= 12) {
+  Future<void> addPhoto({
+    ImageSource source = ImageSource.gallery,
+    int? replaceIndex,
+  }) async {
+    if (photos.length >= 12 && replaceIndex == null) {
       tell(context, 'Se permiten hasta 12 fotos.');
       return;
     }
@@ -296,14 +349,36 @@ class _VehicleEditorState extends State<VehicleEditor> {
     });
     try {
       final file = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1800,
-        imageQuality: 85,
+        source: source,
+        maxWidth: 1400,
+        maxHeight: 1400,
+        imageQuality: 78,
       );
       if (file == null) return;
       final bytes = await file.readAsBytes();
       if (bytes.length > 10 * 1024 * 1024) {
         throw const ApiException('La imagen debe pesar menos de 10 MB.');
+      }
+      void savePhoto(String url) {
+        if (!mounted) return;
+        setState(() {
+          final item = <String, dynamic>{
+            'url': url,
+            'alt': '${controls['marca']!.text} ${controls['modelo']!.text}',
+          };
+          if (replaceIndex == null) {
+            photos.add(item);
+          } else if (replaceIndex < photos.length) {
+            photos[replaceIndex] = item;
+          }
+        });
+      }
+
+      try {
+        savePhoto(await api.uploadFleetPhoto(bytes));
+        return;
+      } on ApiException catch (error) {
+        if (error.status != 404) rethrow;
       }
       final signature = await api.call(
         '/admin/media/signature',
@@ -339,15 +414,7 @@ class _VehicleEditorState extends State<VehicleEditor> {
           'No se pudo subir la imagen. Intenta de nuevo.',
         );
       }
-      if (mounted) {
-        setState(() {
-          photos.add({
-            'url': result['secure_url'],
-            'alt':
-                '${controls['marca']!.text} ${controls['modelo']!.text} · foto ${photos.length + 1}',
-          });
-        });
-      }
+      savePhoto(result['secure_url'] as String);
     } catch (e) {
       if (mounted) tell(context, e);
     } finally {
@@ -544,9 +611,41 @@ class _VehicleEditorState extends State<VehicleEditor> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  PopupMenuButton<String>(
+                    tooltip: 'Opciones de foto',
+                    enabled: !uploading,
+                    onSelected: (action) {
+                      if (action == 'replace') {
+                        addPhoto(replaceIndex: index);
+                      } else {
+                        setState(
+                          () => photos.insert(
+                            action == 'up' ? index - 1 : index + 1,
+                            photos.removeAt(index),
+                          ),
+                        );
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'replace',
+                        child: Text('Reemplazar foto'),
+                      ),
+                      if (index > 0)
+                        const PopupMenuItem(
+                          value: 'up',
+                          child: Text('Subir en la lista'),
+                        ),
+                      if (index < photos.length - 1)
+                        const PopupMenuItem(
+                          value: 'down',
+                          child: Text('Bajar en la lista'),
+                        ),
+                    ],
+                  ),
                   IconButton(
                     tooltip: 'Usar de portada',
-                    onPressed: index == 0
+                    onPressed: index == 0 || uploading
                         ? null
                         : () => setState(() {
                             photos.insert(0, photos.removeAt(index));
@@ -555,9 +654,11 @@ class _VehicleEditorState extends State<VehicleEditor> {
                   ),
                   IconButton(
                     tooltip: 'Quitar foto de la ficha',
-                    onPressed: () => setState(() {
-                      photos.removeAt(index);
-                    }),
+                    onPressed: uploading
+                        ? null
+                        : () => setState(() {
+                            photos.removeAt(index);
+                          }),
                     icon: const Icon(Icons.close),
                   ),
                 ],
@@ -568,7 +669,14 @@ class _VehicleEditorState extends State<VehicleEditor> {
           label: 'Agregar foto de la galería',
           secondary: true,
           loading: uploading,
-          onPressed: addPhoto,
+          onPressed: uploading ? null : () => addPhoto(),
+        ),
+        AutoRentButton(
+          label: 'Tomar foto con la cámara',
+          secondary: true,
+          onPressed: uploading
+              ? null
+              : () => addPhoto(source: ImageSource.camera),
         ),
         for (final (index, r) in references.indexed)
           ListTile(
@@ -586,6 +694,31 @@ class _VehicleEditorState extends State<VehicleEditor> {
           TextButton(
             onPressed: () => reference(),
             child: const Text('Agregar referencia técnica'),
+          ),
+        if (widget.vehicle != null)
+          TextButton(
+            onPressed: uploading
+                ? null
+                : () async {
+                    if (!await confirm(
+                          context,
+                          'Eliminar vehículo',
+                          'Si hay reservas activas, el vehículo seguirá en la flota.',
+                        ) ||
+                        !context.mounted) {
+                      return;
+                    }
+                    try {
+                      await api.call(
+                        '/admin/vehicles/${widget.vehicle!['id']}',
+                        method: 'DELETE',
+                      );
+                      if (context.mounted) Navigator.pop(context, true);
+                    } catch (error) {
+                      if (context.mounted) tell(context, error);
+                    }
+                  },
+            child: const Text('Eliminar vehículo'),
           ),
       ],
       save: () async {

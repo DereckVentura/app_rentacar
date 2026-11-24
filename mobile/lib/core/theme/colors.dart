@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
-  static const background = Color(0xFF000000);
-  static const surface = Color(0xFF121212);
-  static const elevated = Color(0xFF1C1C1E);
-  static const border = Color(0xFF2C2C2E);
-  static const gold = Color(0xFFC9A24B);
-  static const goldLight = Color(0xFFE6C97A);
-  static const goldDark = Color(0xFFA8832F);
-  static const text = Color(0xFFFFFFFF);
-  static const secondary = Color(0xFFA1A1A6);
-  static const disabled = Color(0xFF636366);
-  static const onGold = Color(0xFF000000);
+  static const background = Color(0xFF10100F);
+  static const surface = Color(0xFF1C1B19);
+  static const elevated = Color(0xFF25231F);
+  static const border = Color(0xFF3B362E);
+  static const gold = Color(0xFFE5C278);
+  static const goldLight = Color(0xFFF0D595);
+  static const goldDark = Color(0xFFB3935A);
+  static const text = Color(0xFFF8F4ED);
+  static const secondary = Color(0xFFBCB4A6);
+  static const disabled = Color(0xFF858076);
+  static const onGold = Color(0xFF241A09);
   static const success = Color(0xFF30D158);
   static const error = Color(0xFFFF453A);
   static const warning = Color(0xFFFFD60A);

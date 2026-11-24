@@ -33,13 +33,17 @@ class Session extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> access(Json result) async {
+  Future<void> access(Json result, {bool remember = false}) async {
     api.token = result['accessToken'] as String?;
     if (api.token == null) {
       throw const ApiException('El servidor no devolvió una sesión válida.');
     }
     try {
-      await _storage.write(key: 'autorent_token', value: api.token);
+      if (remember) {
+        await _storage.write(key: 'autorent_token', value: api.token);
+      } else {
+        await _storage.delete(key: 'autorent_token');
+      }
     } catch (_) {
       api.token = null;
       throw const ApiException('No se pudo guardar la sesión de forma segura.');
