@@ -1,7 +1,7 @@
 name: autorent
 description: "AutoRent · Alquiler de vehículos."
 publish_to: 'none'
-version: 0.3.0+3
+version: 0.4.1+6
 
 environment:
   sdk: ^3.13.7
@@ -20,6 +20,9 @@ dependencies:
   latlong2: ^0.10.1
   web: ^1.1.1
   url_launcher: ^6.3.2
+  google_sign_in: 7.2.0
+  firebase_core: ^5.2.0
+  firebase_messaging: ^17.1.0
 
 dev_dependencies:
   flutter_test:

@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'core/api.dart';
+import 'core/android_push.dart';
 import 'core/session.dart';
 import 'core/theme/app_theme.dart';
 import 'features/account.dart';
@@ -72,11 +74,27 @@ class _AutoRentShellState extends State<AutoRentShell>
   int? lastNotice, lastUser;
   bool polling = false, foreground = true;
   Timer? timer;
+  StreamSubscription<RemoteMessage>? notificationTap;
+  void openNotifications(RemoteMessage message) {
+    if (!mounted ||
+        AppScope.of(context).user == null ||
+        message.data['screen'] != 'notifications') {
+      return;
+    }
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const NotificationsPage()));
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     timer = Timer.periodic(const Duration(seconds: 60), (_) => poll());
+    if (AndroidPush.supported) {
+      notificationTap = FirebaseMessaging.onMessageOpenedApp.listen(
+        openNotifications,
+      );
+    }
   }
 
   @override
@@ -89,6 +107,14 @@ class _AutoRentShellState extends State<AutoRentShell>
       unread = 0;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         poll();
+        if (mounted && id != null && AndroidPush.supported) {
+          AndroidPush.instance
+              .restore(AppScope.of(context).api, id)
+              .then((message) {
+                if (message != null) openNotifications(message);
+              })
+              .catchError((Object _) {});
+        }
       });
     }
   }
@@ -102,6 +128,7 @@ class _AutoRentShellState extends State<AutoRentShell>
   @override
   void dispose() {
     timer?.cancel();
+    notificationTap?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

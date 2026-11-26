@@ -31,7 +31,10 @@ class Api {
     Json? body,
     Map<String, String>? query,
     String? key,
+    String? sessionToken,
+    Duration responseTimeout = const Duration(seconds: 12),
   }) async {
+    final bearer = sessionToken ?? token;
     final uri = Uri.parse('$base$path')
         .replace(queryParameters: query?.isEmpty == true ? null : query);
     try {
@@ -41,12 +44,12 @@ class Api {
               ..headers.addAll({
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
-                if (token != null) 'Authorization': 'Bearer $token',
+                if (bearer != null) 'Authorization': 'Bearer $bearer',
                 'Idempotency-Key': ?key,
               })
               ..body = body == null ? '' : jsonEncode(body),
           )
-          .timeout(const Duration(seconds: 12));
+          .timeout(responseTimeout);
       final raw = await response.stream.bytesToString().timeout(
         const Duration(seconds: 90),
       );
@@ -59,7 +62,9 @@ class Api {
         );
       }
       if (response.statusCode >= 400) {
-        if (response.statusCode == 401 && token != null) onExpired?.call();
+        if (response.statusCode == 401 && bearer != null && token == bearer) {
+          onExpired?.call();
+        }
         final error = data['error'] as Json? ?? {};
         throw ApiException(
           error['message']?.toString() ?? 'No se pudo completar la operación.',
@@ -110,6 +115,34 @@ class Api {
       );
     }
     return envelope['data']['url'] as String;
+  }
+
+  Future<Json> uploadPrivatePhoto(
+    String path,
+    Uint8List bytes, {
+    String contentType = 'image/png',
+  }) async {
+    final response = await _client
+        .put(
+          Uri.parse('$base$path'),
+          headers: {
+            'Content-Type': contentType,
+            if (token != null) 'Authorization': 'Bearer $token',
+          },
+          body: bytes,
+        )
+        .timeout(const Duration(seconds: 35));
+    final envelope = jsonDecode(response.body) as Json;
+    if (response.statusCode >= 400) {
+      if (response.statusCode == 401 && token != null) onExpired?.call();
+      final error = envelope['error'] as Json? ?? {};
+      throw ApiException(
+        error['message']?.toString() ?? 'No se pudo guardar la foto.',
+        response.statusCode,
+        error['code']?.toString() ?? '',
+      );
+    }
+    return envelope['data'] as Json? ?? {};
   }
 
   void dispose() {

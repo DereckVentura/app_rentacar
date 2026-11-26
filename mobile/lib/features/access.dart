@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../core/session.dart';
 import '../core/api.dart';
@@ -23,6 +25,9 @@ class AccessPage extends StatefulWidget {
 }
 
 class _AccessPageState extends State<AccessPage> {
+  static Future<void>? googleInitialization;
+  bool googleAvailable = false, googleBusy = false;
+  String? googleClient;
   bool register = false, visible = false, remember = false;
   Json? acceptance;
   final email = TextEditingController(),
@@ -30,6 +35,85 @@ class _AccessPageState extends State<AccessPage> {
       names = TextEditingController(),
       surname = TextEditingController(),
       phone = TextEditingController();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (googleClient != null ||
+        kIsWeb ||
+        defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+    googleClient = '';
+    final api = AppScope.of(context).api;
+    api
+        .call('/auth/google-config')
+        .then((config) {
+          final id = config['clientId'];
+          if (mounted &&
+              id is String &&
+              id.endsWith('.apps.googleusercontent.com')) {
+            setState(() {
+              googleClient = id;
+              googleAvailable = true;
+            });
+          }
+        })
+        .catchError((Object _) {});
+  }
+
+  Future<void> signInWithGoogle(Session session) async {
+    if (googleBusy || googleClient == null) return;
+    if (register && (phone.text.trim().isEmpty || acceptance == null)) {
+      tell(
+        context,
+        'Indica tu celular y acepta los documentos antes de registrarte con Google.',
+      );
+      return;
+    }
+    setState(() => googleBusy = true);
+    try {
+      final google = GoogleSignIn.instance;
+      googleInitialization ??= google.initialize(serverClientId: googleClient);
+      try {
+        await googleInitialization;
+      } catch (_) {
+        googleInitialization = null;
+        rethrow;
+      }
+      final account = await google.authenticate();
+      final token = account.authentication.idToken;
+      if (token == null) {
+        throw const ApiException('Google no devolvió un token válido.');
+      }
+      final result = await session.api.call(
+        '/auth/google',
+        method: 'POST',
+        body: {
+          'credential': token,
+          if (password.text.isNotEmpty) 'password': password.text,
+          if (register) 'telefono': phone.text.trim(),
+          if (register) 'aceptacion': acceptance,
+          'recordar': remember,
+        },
+      );
+      await session.access(result, remember: remember);
+      if (mounted) Navigator.pop(context, true);
+    } on GoogleSignInException catch (error) {
+      if (mounted && error.code != GoogleSignInExceptionCode.canceled) {
+        tell(context, 'Google no está disponible en este dispositivo.');
+      }
+    } on ApiException catch (error) {
+      if (mounted && error.code == 'GOOGLE_REGISTER_REQUIRED') {
+        setState(() => register = true);
+      }
+      if (mounted) tell(context, error);
+    } catch (_) {
+      if (mounted) tell(context, 'No se pudo completar el acceso con Google.');
+    } finally {
+      if (mounted) setState(() => googleBusy = false);
+    }
+  }
+
   @override
   void dispose() {
     for (final c in [email, password, names, surname, phone]) {
@@ -64,9 +148,10 @@ class _AccessPageState extends State<AccessPage> {
             autofillHints: const [AutofillHints.familyName],
           ),
           AutoRentTextField(
-            label: 'Teléfono (opcional)',
+            label: 'Celular',
             controller: phone,
             keyboardType: TextInputType.phone,
+            validator: requiredText,
           ),
         ],
         AutoRentTextField(
@@ -124,6 +209,13 @@ class _AccessPageState extends State<AccessPage> {
           TextButton(
             onPressed: () => openHelp(context),
             child: const Text('Aviso de privacidad y condiciones'),
+          ),
+        if (googleAvailable)
+          OutlinedButton(
+            onPressed: googleBusy ? null : () => signInWithGoogle(session),
+            child: Text(
+              googleBusy ? 'Comprobando cuenta…' : 'Continuar con Google',
+            ),
           ),
       ],
       save: () async {

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -8,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../core/api.dart';
 import '../core/session.dart';
 import '../shared/widgets/screen.dart';
+import '../shared/widgets/photo_crop.dart';
 
 class DriverLicenseForm extends StatefulWidget {
   const DriverLicenseForm({super.key, required this.onSaved});
@@ -39,33 +39,17 @@ class _DriverLicenseFormState extends State<DriverLicenseForm> {
       );
       if (file == null) return;
       final original = await file.readAsBytes();
-      final bytes = source == ImageSource.camera
-          ? await cropDocument(original)
-          : original;
+      if (!mounted) return;
+      final bytes = await cropPhoto(
+        context,
+        original,
+        width: 1280,
+        height: 807,
+      );
+      if (!mounted || bytes == null) return;
       if (bytes.length > 3 * 1024 * 1024) {
         throw const ApiException('La imagen debe pesar como máximo 3 MB.');
       }
-      if (!mounted) return;
-      final accepted = await showDialog<bool>(
-        context: context,
-        builder: (dialog) => AlertDialog(
-          title: const Text('Revisa la foto'),
-          content: Image.memory(bytes, fit: BoxFit.contain),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialog, false),
-              child: const Text('Repetir foto'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialog, true),
-              child: const Text('Usar esta foto'),
-            ),
-          ],
-        ),
-      );
-      if (!mounted) return;
-      if (accepted == false) return await pick(reverse, source);
-      if (accepted != true) return;
       setState(() {
         if (reverse) {
           back = bytes;
@@ -78,54 +62,6 @@ class _DriverLicenseFormState extends State<DriverLicenseForm> {
       widget.onSaved(null);
     } catch (e) {
       if (mounted) tell(context, e);
-    }
-  }
-
-  Future<Uint8List> cropDocument(Uint8List original) async {
-    final codec = await ui.instantiateImageCodec(original);
-    try {
-      final frame = await codec.getNextFrame();
-      final image = frame.image;
-      try {
-        const ratio = 85.6 / 53.98;
-        final width = image.width < image.height * ratio
-            ? image.width.toDouble()
-            : image.height * ratio;
-        final height = width / ratio;
-        final source = Rect.fromCenter(
-          center: Offset(image.width / 2, image.height / 2),
-          width: width,
-          height: height,
-        );
-        final outWidth = width > 950 ? 950 : width.round();
-        final outHeight = (outWidth / ratio).round();
-        final recorder = ui.PictureRecorder();
-        Canvas(recorder).drawImageRect(
-          image,
-          source,
-          Rect.fromLTWH(0, 0, outWidth.toDouble(), outHeight.toDouble()),
-          Paint()..filterQuality = FilterQuality.medium,
-        );
-        final picture = recorder.endRecording();
-        try {
-          final result = await picture.toImage(outWidth, outHeight);
-          try {
-            final png = await result.toByteData(format: ui.ImageByteFormat.png);
-            if (png == null) {
-              throw const ApiException('No se pudo recortar la foto.');
-            }
-            return png.buffer.asUint8List(png.offsetInBytes, png.lengthInBytes);
-          } finally {
-            result.dispose();
-          }
-        } finally {
-          picture.dispose();
-        }
-      } finally {
-        image.dispose();
-      }
-    } finally {
-      codec.dispose();
     }
   }
 
@@ -235,7 +171,7 @@ class _DriverLicenseFormState extends State<DriverLicenseForm> {
               contentPadding: EdgeInsets.zero,
               value: consent,
               title: const Text(
-                'Autorizo el uso de mi licencia para verificar esta reserva.',
+                'Autorizo el uso de mi licencia para que administración revise esta reserva.',
               ),
               onChanged: busy
                   ? null
@@ -273,6 +209,7 @@ class _DriverLicenseFormState extends State<DriverLicenseForm> {
                         final result = await api.call(
                           '/driver-documents',
                           method: 'POST',
+                          responseTimeout: const Duration(seconds: 35),
                           body: {
                             'titular': holder.text.trim(),
                             'pais': 'El Salvador',
@@ -282,6 +219,7 @@ class _DriverLicenseFormState extends State<DriverLicenseForm> {
                               0,
                             ).toIso8601String().split('T').first,
                             'consentimiento': true,
+                            'encuadrada': true,
                             'frente': base64Encode(front!),
                             'reverso': base64Encode(back!),
                           },
@@ -314,29 +252,88 @@ class DriverLicenseReview extends StatelessWidget {
     return Column(
       children: [
         Text('${document['titular']} · Vence ${document['vencimiento']}'),
-        for (final side in ['front', 'back'])
-          FutureBuilder<Uint8List>(
-            future: api.image(
-              '/driver-documents/${document['id']}/image?side=$side',
-            ),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return const Text('No se pudo cargar la licencia.');
-              }
-              if (!snapshot.hasData) return const LinearProgressIndicator();
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Image.memory(
-                  snapshot.data!,
-                  height: 220,
-                  semanticLabel: side == 'front'
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final side in ['front', 'back'])
+              Expanded(
+                child: _LicenseSide(
+                  key: ValueKey('${document['id']}-$side'),
+                  api: api,
+                  path: '/driver-documents/${document['id']}/image?side=$side',
+                  label: side == 'front'
                       ? 'Frente de licencia'
                       : 'Reverso de licencia',
                 ),
-              );
-            },
-          ),
+              ),
+          ],
+        ),
       ],
     );
   }
+}
+
+class _LicenseSide extends StatefulWidget {
+  const _LicenseSide({
+    super.key,
+    required this.api,
+    required this.path,
+    required this.label,
+  });
+  final Api api;
+  final String path, label;
+  @override
+  State<_LicenseSide> createState() => _LicenseSideState();
+}
+
+class _LicenseSideState extends State<_LicenseSide> {
+  late final image = widget.api.image(widget.path);
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Uint8List>(
+    future: image,
+    builder: (context, snapshot) {
+      if (snapshot.hasError) return const Text('No se pudo cargar la foto.');
+      if (!snapshot.hasData) return const LinearProgressIndicator();
+      final bytes = snapshot.data!;
+      return TextButton(
+        onPressed: () => showDialog<void>(
+          context: context,
+          builder: (dialog) => Dialog(
+            child: SizedBox(
+              height: MediaQuery.sizeOf(dialog).height * .7,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: InteractiveViewer(
+                      maxScale: 5,
+                      child: Center(
+                        child: Image.memory(bytes, semanticLabel: widget.label),
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialog),
+                    child: const Text('Cerrar'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        child: Column(
+          children: [
+            AspectRatio(
+              aspectRatio: 1280 / 807,
+              child: Image.memory(
+                bytes,
+                fit: BoxFit.contain,
+                semanticLabel: widget.label,
+              ),
+            ),
+            Text(widget.label),
+          ],
+        ),
+      );
+    },
+  );
 }

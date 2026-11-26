@@ -5,6 +5,7 @@ import 'payment.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../core/api.dart';
 import '../core/availability.dart';
@@ -20,10 +21,12 @@ import 'legal.dart';
 const states = {
   'pendiente': 'Pendiente de validación',
   'lista_para_aprobar': 'Listo para aprobar',
+  'en_revision': 'En revisión',
   'denegada': 'Denegada',
   'denegada_automatica': 'Denegada automáticamente',
   'vencida': 'Vencida',
   'confirmada': 'Confirmada',
+  'pagada': 'Pagada',
   'en_curso': 'En curso',
   'completada': 'Completada',
   'cancelada': 'Cancelada',
@@ -346,10 +349,12 @@ class _ReservePageState extends State<ReservePage> {
                             );
                             return;
                           }
+                          final phone = await askReservationPhone(context, api);
+                          if (!context.mounted || phone == null) return;
                           if (!await confirm(
                                 context,
                                 'Solicitar reserva',
-                                'Total USD ${quote!['total']}. El plazo de validación es de ${validationPeriod(quote!['minutos'])}. Si vence, se liberan las fechas.',
+                                'Total USD ${quote!['total']}. El plazo para depositar empieza cuando administración confirme.',
                               ) ||
                               !context.mounted) {
                             return;
@@ -374,6 +379,7 @@ class _ReservePageState extends State<ReservePage> {
                                 'precio_confirmado': quote!['precio_dia'],
                                 'aceptacion': acceptance,
                                 'documento_id': driverDocument!['id'],
+                                'celular': phone,
                               },
                               key: operationKey,
                             );
@@ -425,6 +431,7 @@ class ReservationsPage extends StatefulWidget {
 class _ReservationsPageState extends State<ReservationsPage> {
   int page = 1, revision = 0;
   String state = '', search = '';
+  bool history = false;
   final searchInput = TextEditingController();
   @override
   void dispose() {
@@ -453,12 +460,20 @@ class _ReservationsPageState extends State<ReservationsPage> {
       );
     }
     return DataView(
-      key: ValueKey((page, state, search, revision, session.user!['id'])),
+      key: ValueKey((
+        page,
+        state,
+        search,
+        history,
+        revision,
+        session.user!['id'],
+      )),
       load: () => session.api.call(
         '/reservations',
         query: {
           'page': '$page',
           'limit': '20',
+          if (history) 'vista': 'historial',
           if (state.isNotEmpty) 'estado': state,
           if (search.isNotEmpty) 'buscar': search,
         },
@@ -486,7 +501,17 @@ class _ReservationsPageState extends State<ReservationsPage> {
                 ),
               ),
             ),
+            FilterChip(
+              label: const Text('Historial de confirmadas y pagadas'),
+              selected: history,
+              onSelected: (selected) => setState(() {
+                history = selected;
+                state = '';
+                page = 1;
+              }),
+            ),
             DropdownButtonFormField<String>(
+              key: ValueKey(history),
               initialValue: state,
               decoration: const InputDecoration(labelText: 'Estado'),
               items: [
@@ -495,10 +520,12 @@ class _ReservationsPageState extends State<ReservationsPage> {
                   (e) => DropdownMenuItem(value: e.key, child: Text(e.value)),
                 ),
               ],
-              onChanged: (v) => setState(() {
-                state = v ?? '';
-                page = 1;
-              }),
+              onChanged: history
+                  ? null
+                  : (v) => setState(() {
+                      state = v ?? '';
+                      page = 1;
+                    }),
             ),
             if (rows.isEmpty)
               const HintBox('Todavía no hay reservas para mostrar.'),
@@ -587,21 +614,25 @@ class _ReservationDetailState extends State<ReservationDetail> {
     super.dispose();
   }
 
-  Future<void> validate() async {
+  Future<void> confirmReservation() async {
     if (!await confirm(
           context,
-          'Validar reserva',
-          'Confirma que revisaste la licencia y los datos del pago.',
+          'Confirmar reserva',
+          'Confirma que revisaste la licencia. El plazo para depositar empieza al confirmar.',
         ) ||
         !mounted) {
       return;
     }
+    await adminAction('validate', {'datos_verificados': true});
+  }
+
+  Future<void> adminAction(String action, [Json body = const {}]) async {
     setState(() => busy = true);
     try {
       await AppScope.of(context).api.call(
-        '/admin/reservations/${widget.id}/validate',
+        '/admin/reservations/${widget.id}/$action',
         method: 'POST',
-        body: {},
+        body: body,
       );
     } catch (e) {
       if (mounted) tell(context, e);
@@ -610,6 +641,57 @@ class _ReservationDetailState extends State<ReservationDetail> {
         setState(() => busy = false);
         dataKey.currentState?.reload();
       }
+    }
+  }
+
+  String get receiptPath => '/reservations/${widget.id}/receipt';
+
+  Future<void> attachReceipt() async {
+    final api = AppScope.of(context).api;
+    setState(() => busy = true);
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 82,
+      );
+      if (file == null || !mounted) return;
+      final bytes = await file.readAsBytes();
+      if (bytes.length < 3 ||
+          bytes[0] != 255 ||
+          bytes[1] != 216 ||
+          bytes[2] != 255 ||
+          bytes.length > 2000000) {
+        throw const ApiException('Selecciona una imagen JPG de menos de 2 MB.');
+      }
+      await api.uploadPrivatePhoto(
+        receiptPath,
+        bytes,
+        contentType: 'image/jpeg',
+      );
+      if (mounted) tell(context, 'Comprobante guardado.');
+    } catch (e) {
+      if (mounted) tell(context, e);
+    } finally {
+      if (mounted) {
+        setState(() => busy = false);
+        dataKey.currentState?.reload();
+      }
+    }
+  }
+
+  Future<void> viewReceipt() async {
+    try {
+      final bytes = await AppScope.of(context).api.image(receiptPath);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) =>
+            Dialog(child: InteractiveViewer(child: Image.memory(bytes))),
+      );
+    } catch (e) {
+      if (mounted) tell(context, e);
     }
   }
 
@@ -776,17 +858,53 @@ class _ReservationDetailState extends State<ReservationDetail> {
                   reservation: r,
                   onExpired: () => dataKey.currentState?.reload(),
                 ),
-              const PaymentInfo(),
+              if (r['vence_en'] != null) const PaymentInfo(),
+              if (!session.admin && r['vence_en'] != null)
+                AutoRentButton(
+                  label: r['receipt_submitted_at'] == null
+                      ? 'Adjuntar comprobante JPG'
+                      : 'Cambiar comprobante',
+                  loading: busy,
+                  onPressed: busy ? null : attachReceipt,
+                ),
+              if (r['receipt_submitted_at'] != null)
+                OutlinedButton(
+                  onPressed: busy ? null : viewReceipt,
+                  child: const Text('Ver comprobante'),
+                ),
+              if (session.admin && r['vence_en'] != null)
+                AutoRentButton(
+                  label: 'Marcar depósito recibido',
+                  loading: busy,
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          if (await confirm(
+                                context,
+                                'Registrar depósito',
+                                'Confirma que la empresa recibió el depósito.',
+                              ) &&
+                              mounted) {
+                            await adminAction('paid');
+                          }
+                        },
+                ),
               if (session.admin &&
                   [
                     'pendiente',
+                    'en_revision',
                     'lista_para_aprobar',
                     'denegada_automatica',
                   ].contains(r['estado'])) ...[
+                if (r['estado'] == 'pendiente')
+                  OutlinedButton(
+                    onPressed: busy ? null : () => adminAction('review'),
+                    child: const Text('Marcar en revisión'),
+                  ),
                 AutoRentButton(
-                  label: 'Completar reserva',
+                  label: 'Confirmar reserva',
                   loading: busy,
-                  onPressed: busy ? null : validate,
+                  onPressed: busy ? null : confirmReservation,
                 ),
                 AutoRentButton(
                   label: 'Denegar reserva',
@@ -828,7 +946,9 @@ class _ReservationDetailState extends State<ReservationDetail> {
               if ([
                     'pendiente',
                     'lista_para_aprobar',
+                    'en_revision',
                     'confirmada',
+                    'pagada',
                   ].contains(r['estado']) &&
                   (session.admin ||
                       DateTime.parse(r['inicio_utc'].toString())
@@ -839,7 +959,10 @@ class _ReservationDetailState extends State<ReservationDetail> {
                   loading: busy,
                   onPressed: busy ? null : cancel,
                 ),
-              if (session.admin && r['estado'] == 'confirmada')
+              if (session.admin &&
+                  (r['estado'] == 'pagada' ||
+                      (r['estado'] == 'confirmada' &&
+                          r['confirmed_at'] == null)))
                 AutoRentButton(
                   label: 'Registrar entrega',
                   onPressed: () => operation(r, false),
@@ -907,5 +1030,44 @@ class _DenyReservationPageState extends State<DenyReservationPage> {
         body: {'motivo': reason.text.trim()},
       );
     },
+  );
+}
+
+Future<String?> askReservationPhone(BuildContext context, Api api) async {
+  String current = '';
+  try {
+    final response = await api.call('/auth/me');
+    current = ((response['user'] as Json)['telefono'] ?? '').toString();
+  } catch (_) {}
+  if (!context.mounted) return null;
+  String entered = current;
+  return showDialog<String>(
+    context: context,
+    builder: (dialog) => AlertDialog(
+      title: const Text('¿Sigues usando este número?'),
+      content: TextFormField(
+        initialValue: current,
+        onChanged: (value) => entered = value,
+        keyboardType: TextInputType.phone,
+        decoration: const InputDecoration(
+          labelText: 'Celular',
+          hintText: '+503',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialog),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (entered.trim().isNotEmpty) {
+              Navigator.pop(dialog, entered.trim());
+            }
+          },
+          child: const Text('Confirmar mi celular'),
+        ),
+      ],
+    ),
   );
 }

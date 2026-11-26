@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'api.dart';
+import 'android_push.dart';
 
 class Session extends ChangeNotifier {
   Session(this.api) {
@@ -15,6 +16,13 @@ class Session extends ChangeNotifier {
   bool restoring = true;
   String? error;
   bool get admin => user?['rol'] == 'administrador';
+  void updateUser(Json account) {
+    if (user != null && user!['id'] == account['id']) {
+      user = account;
+      notifyListeners();
+    }
+  }
+
   Future<void> restore() async {
     error = null;
     try {
@@ -54,10 +62,17 @@ class Session extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    final sessionToken = api.token;
+    final detached = sessionToken != null
+        ? AndroidPush.instance
+              .deactivate(api, sessionToken: sessionToken)
+              .catchError((Object _) {})
+        : Future<void>.value();
     api.token = null;
     user = null;
     try {
       await _storage.delete(key: 'autorent_token');
+      await detached.timeout(const Duration(seconds: 2), onTimeout: () {});
     } finally {
       error = null;
       notifyListeners();
