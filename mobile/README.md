@@ -46,4 +46,6 @@ El APK release se genera en `build/app/outputs/flutter-apk/app-release.apk`. La 
 
 `API_BASE_URL` cambia el servidor sin modificar código. Nunca introducir secretos de MySQL o Cloudinary en la app. `MAP_TILE_URL` permite cambiar las teselas del mapa al compilar. Los puntos se leen de la API; no se inventan coordenadas de sucursales.
 
-Los tokens se guardan con `flutter_secure_storage`, no se conserva la contraseña. Para web se necesita HTTPS o localhost. La sesión se valida contra el servidor al restaurarse; si expira hay que ingresar otra vez. Los avisos son persistentes dentro de la app y se consultan cada minuto mientras está abierta; no hay servicio push en segundo plano.
+Los tokens se guardan con `flutter_secure_storage`. La sesión se valida contra el servidor al restaurarse y requiere ingresar de nuevo si expiró. Para web se necesita HTTPS o localhost.
+
+AutoRent 0.4.1 usa el flujo de reservas de la API v3. La pantalla de cuenta permite activar avisos en segundo plano en Android cuando el servidor tiene configurado Firebase Cloud Messaging. El centro de avisos dentro de la app también funciona con el sondeo de la API.
