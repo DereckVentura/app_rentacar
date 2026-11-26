@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AutoRentTextField extends StatelessWidget {
   const AutoRentTextField({
@@ -13,6 +14,8 @@ class AutoRentTextField extends StatelessWidget {
     this.onChanged,
     this.autofillHints,
     this.suffixIcon,
+    this.maxLength,
+    this.inputFormatters,
   });
   final String label;
   final TextEditingController? controller;
@@ -23,6 +26,8 @@ class AutoRentTextField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final Iterable<String>? autofillHints;
   final Widget? suffixIcon;
+  final int? maxLength;
+  final List<TextInputFormatter>? inputFormatters;
   @override
   Widget build(BuildContext context) => TextFormField(
     controller: controller,
@@ -31,6 +36,8 @@ class AutoRentTextField extends StatelessWidget {
     enabled: enabled,
     keyboardType: keyboardType,
     maxLines: maxLines,
+    maxLength: maxLength,
+    inputFormatters: inputFormatters,
     onChanged: onChanged,
     autofillHints: autofillHints,
     autocorrect: !obscure && keyboardType != TextInputType.visiblePassword,

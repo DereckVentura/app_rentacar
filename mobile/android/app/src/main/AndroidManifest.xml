@@ -5,9 +5,11 @@
         android:label="AutoRent"
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
-        android:name="${applicationName}"
+        android:name=".AutoRentApplication"
         android:icon="@mipmap/ic_launcher">
         <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="autorent_reservations" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_notification_bell" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -430,6 +430,8 @@ class _VehicleDetailState extends State<VehicleDetail> {
                 HintBox(
                   'Ubicación: ${v['ubicacion']['nombre']}\n${v['ubicacion']['direccion']}',
                 ),
+              if (v['ubicacion'] == null && v['reservable'] == true)
+                const HintBox('Selecciona el punto de entrega al reservar.'),
               AutoRentButton(
                 label: 'Elegir fechas y reservar',
                 onPressed: v['reservable'] == true

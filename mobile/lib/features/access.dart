@@ -4,10 +4,12 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../core/session.dart';
 import '../core/api.dart';
+import '../core/validation.dart';
 import 'legal.dart';
 import '../shared/widgets/autorent_text_field.dart';
 import '../shared/widgets/screen.dart';
 import '../shared/widgets/brand.dart';
+import '../shared/widgets/phone_field.dart';
 
 Future<bool> requireLogin(BuildContext context) async {
   if (AppScope.of(context).user != null) return true;
@@ -33,8 +35,8 @@ class _AccessPageState extends State<AccessPage> {
   final email = TextEditingController(),
       password = TextEditingController(),
       names = TextEditingController(),
-      surname = TextEditingController(),
-      phone = TextEditingController();
+      surname = TextEditingController();
+  String phone = '';
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -63,7 +65,7 @@ class _AccessPageState extends State<AccessPage> {
 
   Future<void> signInWithGoogle(Session session) async {
     if (googleBusy || googleClient == null) return;
-    if (register && (phone.text.trim().isEmpty || acceptance == null)) {
+    if (register && (validatedPhone(phone) == null || acceptance == null)) {
       tell(
         context,
         'Indica tu celular y acepta los documentos antes de registrarte con Google.',
@@ -91,7 +93,7 @@ class _AccessPageState extends State<AccessPage> {
         body: {
           'credential': token,
           if (password.text.isNotEmpty) 'password': password.text,
-          if (register) 'telefono': phone.text.trim(),
+          if (register) 'telefono': validatedPhone(phone),
           if (register) 'aceptacion': acceptance,
           'recordar': remember,
         },
@@ -116,7 +118,7 @@ class _AccessPageState extends State<AccessPage> {
 
   @override
   void dispose() {
-    for (final c in [email, password, names, surname, phone]) {
+    for (final c in [email, password, names, surname]) {
       c.dispose();
     }
     super.dispose();
@@ -139,34 +141,31 @@ class _AccessPageState extends State<AccessPage> {
             label: 'Nombres',
             controller: names,
             validator: requiredText,
+            maxLength: 100,
             autofillHints: const [AutofillHints.givenName],
           ),
           AutoRentTextField(
             label: 'Apellidos',
             controller: surname,
             validator: requiredText,
+            maxLength: 100,
             autofillHints: const [AutofillHints.familyName],
           ),
-          AutoRentTextField(
-            label: 'Celular',
-            controller: phone,
-            keyboardType: TextInputType.phone,
-            validator: requiredText,
-          ),
+          PhoneField(initialValue: phone, onChanged: (value) => phone = value),
         ],
         AutoRentTextField(
           label: 'Correo electrónico',
           controller: email,
           keyboardType: TextInputType.emailAddress,
           autofillHints: const [AutofillHints.email],
-          validator: requiredText,
+          validator: emailError,
         ),
         AutoRentTextField(
           label: 'Contraseña',
           controller: password,
           obscure: !visible,
           keyboardType: TextInputType.visiblePassword,
-          validator: requiredText,
+          validator: (value) => passwordError(value, creating: register),
           autofillHints: [
             register ? AutofillHints.newPassword : AutofillHints.password,
           ],
@@ -239,7 +238,7 @@ class _AccessPageState extends State<AccessPage> {
               'nombres': names.text.trim(),
               'apellidos': surname.text.trim(),
               'aceptacion': acceptance,
-              if (phone.text.trim().isNotEmpty) 'telefono': phone.text.trim(),
+              'telefono': validatedPhone(phone),
             },
           },
         );

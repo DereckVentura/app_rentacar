@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'api.dart';
-import 'android_push.dart';
+import 'native_push.dart';
 
 class Session extends ChangeNotifier {
   Session(this.api) {
@@ -64,7 +64,7 @@ class Session extends ChangeNotifier {
   Future<void> logout() async {
     final sessionToken = api.token;
     final detached = sessionToken != null
-        ? AndroidPush.instance
+        ? NativePush.instance
               .deactivate(api, sessionToken: sessionToken)
               .catchError((Object _) {})
         : Future<void>.value();

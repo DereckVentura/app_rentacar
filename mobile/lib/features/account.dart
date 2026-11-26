@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/api.dart';
-import '../core/android_push.dart';
+import '../core/native_push.dart';
 import '../core/session.dart';
+import '../core/validation.dart';
 import '../shared/widgets/autorent_button.dart';
+import '../shared/widgets/phone_field.dart';
 import '../shared/widgets/screen.dart';
 import '../shared/widgets/photo_crop.dart';
 import 'access.dart';
@@ -28,7 +30,15 @@ class AccountPage extends StatelessWidget {
             onPressed: () => requireLogin(context),
           ),
         ] else ...[
-          const Icon(Icons.account_circle_outlined, size: 72),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: PrivateProfilePhoto(
+              key: ValueKey('${u['id']}:${u['foto']}'),
+              api: s.api,
+              hasPhoto: u['foto'] != null,
+              size: 76,
+            ),
+          ),
           Text(
             '${u['nombres']} ${u['apellidos']}',
             style: Theme.of(context).textTheme.titleLarge,
@@ -51,13 +61,6 @@ class AccountPage extends StatelessWidget {
               context,
               MaterialPageRoute(builder: (_) => const NotificationsPage()),
             ),
-          ),
-          AutoRentButton(
-            label: 'Cerrar sesión',
-            secondary: true,
-            onPressed: () async {
-              await s.logout();
-            },
           ),
         ],
         AutoRentButton(
@@ -103,21 +106,17 @@ class _AccountEditorState extends State<AccountEditor> {
   late final surname = TextEditingController(
     text: widget.account['apellidos'] as String?,
   );
-  late final phone = TextEditingController(
-    text: widget.account['telefono'] as String?,
-  );
+  late String phone = widget.account['telefono'] as String? ?? '';
   late final preferences = <String, bool>{
     for (final key in categories.keys)
       key: widget.account['avisos']?[key] != false,
   };
   bool busy = false;
-  int photoRevision = 0;
 
   @override
   void dispose() {
     names.dispose();
     surname.dispose();
-    phone.dispose();
     super.dispose();
   }
 
@@ -151,7 +150,6 @@ class _AccountEditorState extends State<AccountEditor> {
     );
     session.updateUser(result['user'] as Json);
     if (mounted) {
-      setState(() => photoRevision++);
       tell(context, 'Foto guardada.');
     }
   }
@@ -165,33 +163,53 @@ class _AccountEditorState extends State<AccountEditor> {
         key: form,
         child: PageBody(
           children: [
-            if (session.user?['foto'] != null)
-              PrivateProfilePhoto(
-                key: ValueKey(photoRevision),
-                api: session.api,
-              ),
-            const Text('Foto de perfil'),
-            Wrap(
-              spacing: 8,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: busy
-                      ? null
-                      : () => run(
-                          () => changePhoto(session, ImageSource.gallery),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Foto de perfil',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 10),
+                    PrivateProfilePhoto(
+                      key: ValueKey(session.user?['foto']),
+                      api: session.api,
+                      hasPhoto: session.user?['foto'] != null,
+                      size: 70,
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: busy
+                              ? null
+                              : () => run(
+                                  () =>
+                                      changePhoto(session, ImageSource.gallery),
+                                ),
+                          icon: const Icon(Icons.photo_library_outlined),
+                          label: const Text('Importar de galería'),
                         ),
-                  icon: const Icon(Icons.photo_library_outlined),
-                  label: const Text('Galería'),
+                        OutlinedButton.icon(
+                          onPressed: busy
+                              ? null
+                              : () => run(
+                                  () =>
+                                      changePhoto(session, ImageSource.camera),
+                                ),
+                          icon: const Icon(Icons.camera_alt_outlined),
+                          label: const Text('Usar cámara'),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                OutlinedButton.icon(
-                  onPressed: busy
-                      ? null
-                      : () =>
-                            run(() => changePhoto(session, ImageSource.camera)),
-                  icon: const Icon(Icons.camera_alt_outlined),
-                  label: const Text('Cámara'),
-                ),
-              ],
+              ),
             ),
             TextFormField(
               controller: names,
@@ -205,12 +223,9 @@ class _AccountEditorState extends State<AccountEditor> {
               maxLength: 100,
               validator: requiredText,
             ),
-            TextFormField(
-              controller: phone,
-              decoration: const InputDecoration(labelText: 'Celular'),
-              keyboardType: TextInputType.phone,
-              maxLength: 25,
-              validator: requiredText,
+            PhoneField(
+              initialValue: phone,
+              onChanged: (value) => phone = value,
             ),
             ExpansionTile(
               title: const Text('Preferencias de avisos'),
@@ -239,7 +254,7 @@ class _AccountEditorState extends State<AccountEditor> {
                         body: {
                           'nombres': names.text.trim(),
                           'apellidos': surname.text.trim(),
-                          'telefono': phone.text.trim(),
+                          'telefono': validatedPhone(phone),
                           'avisos': preferences,
                         },
                       );
@@ -266,31 +281,31 @@ class _AccountEditorState extends State<AccountEditor> {
 }
 
 class PrivateProfilePhoto extends StatefulWidget {
-  const PrivateProfilePhoto({super.key, required this.api});
+  const PrivateProfilePhoto({
+    super.key,
+    required this.api,
+    required this.hasPhoto,
+    this.size = 96,
+  });
   final Api api;
+  final bool hasPhoto;
+  final double size;
   @override
   State<PrivateProfilePhoto> createState() => _PrivateProfilePhotoState();
 }
 
 class _PrivateProfilePhotoState extends State<PrivateProfilePhoto> {
-  late final photo = widget.api.image('/account/photo');
+  late final photo = widget.hasPhoto
+      ? widget.api.image('/account/photo')
+      : null;
   @override
   Widget build(BuildContext context) => FutureBuilder(
     future: photo,
-    builder: (_, snapshot) => snapshot.hasData
-        ? Align(
-            alignment: Alignment.centerLeft,
-            child: ClipOval(
-              child: Image.memory(
-                snapshot.data!,
-                width: 96,
-                height: 96,
-                fit: BoxFit.cover,
-                semanticLabel: 'Foto de perfil',
-              ),
-            ),
-          )
-        : const Icon(Icons.account_circle_outlined, size: 72),
+    builder: (_, snapshot) => CircleAvatar(
+      radius: widget.size / 2,
+      foregroundImage: snapshot.hasData ? MemoryImage(snapshot.data!) : null,
+      child: Icon(Icons.person_outline, size: widget.size * .52),
+    ),
   );
 }
 
@@ -320,14 +335,13 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
           controller: current,
           obscureText: true,
           decoration: const InputDecoration(labelText: 'Contraseña actual'),
-          validator: requiredText,
+          validator: passwordError,
         ),
         TextFormField(
           controller: next,
           obscureText: true,
           decoration: const InputDecoration(labelText: 'Nueva contraseña'),
-          validator: (value) =>
-              (value?.length ?? 0) < 8 ? 'Usa al menos ocho caracteres.' : null,
+          validator: (value) => passwordError(value, creating: true),
         ),
       ],
       save: () async {
@@ -351,22 +365,43 @@ class NotificationsPage extends StatefulWidget {
 class _NotificationsPageState extends State<NotificationsPage> {
   int page = 1, version = 0;
   bool pushBusy = false;
+  int? accountId;
+  bool pushActive = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final id = AppScope.of(context).user?['id'] as int?;
+    if (id == accountId) return;
+    accountId = id;
+    pushActive = false;
+    if (id != null && NativePush.supported) {
+      NativePush.instance
+          .isActive(id)
+          .then((active) {
+            if (mounted && accountId == id) setState(() => pushActive = active);
+          })
+          .catchError((Object _) {});
+    }
+  }
+
   Future<void> configurePush(Session session, bool enable) async {
     final id = session.user?['id'];
     if (pushBusy || id is! int) return;
     setState(() => pushBusy = true);
     try {
       if (enable) {
-        await AndroidPush.instance.activate(session.api, id);
+        await NativePush.instance.activate(session.api, id);
       } else {
-        await AndroidPush.instance.deactivate(session.api);
+        await NativePush.instance.deactivate(session.api);
       }
       if (mounted) {
+        setState(() => pushActive = enable);
         tell(
           context,
           enable
-              ? 'Avisos activados en Android.'
-              : 'Avisos desactivados en Android.',
+              ? 'Avisos activados en este dispositivo.'
+              : 'Avisos desactivados en este dispositivo.',
         );
       }
     } catch (error) {
@@ -382,32 +417,55 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Mis avisos')),
       body: DataView(
-        key: ValueKey('$page$version'),
+        key: ValueKey((page, version)),
         load: () =>
             api.call('/notifications', query: {'page': '$page', 'limit': '20'}),
         builder: (data) {
           final rows = (data['notifications'] as List).cast<Json>();
           return PageBody(
             children: [
-              if (AndroidPush.supported)
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    OutlinedButton(
-                      onPressed: pushBusy
-                          ? null
-                          : () => configurePush(session, true),
-                      child: const Text('Activar avisos en Android'),
+              if (NativePush.supported)
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.notifications_active_outlined),
+                    title: const Text('Avisos del dispositivo'),
+                    subtitle: const Text(
+                      'Recibe novedades aunque AutoRent esté cerrado.',
                     ),
-                    TextButton(
-                      onPressed: pushBusy
-                          ? null
-                          : () => configurePush(session, false),
-                      child: const Text('Desactivar'),
-                    ),
-                  ],
+                    trailing: pushBusy
+                        ? const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Switch(
+                            value: pushActive,
+                            onChanged: (enabled) =>
+                                configurePush(session, enabled),
+                          ),
+                  ),
                 ),
-              Text('${data['unread']} avisos sin leer'),
+              Row(
+                children: [
+                  Expanded(child: Text('${data['unread']} sin leer')),
+                  TextButton(
+                    onPressed: data['unread'] == 0
+                        ? null
+                        : () async {
+                            try {
+                              await api.call(
+                                '/notifications/read',
+                                method: 'POST',
+                                body: {},
+                              );
+                              if (mounted) setState(() => version++);
+                            } catch (error) {
+                              if (context.mounted) tell(context, error);
+                            }
+                          },
+                    child: const Text('Marcar todas como leídas'),
+                  ),
+                ],
+              ),
               if (rows.isEmpty)
                 const HintBox(
                   'Aquí verás las confirmaciones de tus reservas, entregas y devoluciones.',
@@ -421,7 +479,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                           : Icons.done,
                     ),
                     title: Text(n['titulo'].toString()),
-                    subtitle: Text(n['mensaje'].toString()),
+                    subtitle: Text(
+                      '${n['mensaje']}\n${dateLabel(n['creado_en'])}',
+                    ),
                     onTap: () async {
                       try {
                         await api.call(
@@ -480,5 +540,103 @@ class _NotificationsPageState extends State<NotificationsPage> {
         },
       ),
     );
+  }
+}
+
+Future<void> showNoticePreview(BuildContext context, Api api) async {
+  final selected = await showModalBottomSheet<Json>(
+    context: context,
+    useSafeArea: true,
+    showDragHandle: true,
+    isScrollControlled: true,
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.sizeOf(context).height * .55,
+    ),
+    builder: (sheet) => Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Notificaciones',
+                  style: Theme.of(sheet).textTheme.titleLarge,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Cerrar notificaciones',
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(sheet),
+              ),
+            ],
+          ),
+          Flexible(
+            child: DataView(
+              load: () => api.call('/notifications', query: {'limit': '3'}),
+              builder: (data) {
+                final rows = (data['notifications'] as List).cast<Json>();
+                if (rows.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Text('Todavía no tienes avisos.'),
+                  );
+                }
+                return ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final row in rows)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          row['read_at'] == null
+                              ? Icons.notifications_active_outlined
+                              : Icons.notifications_none,
+                        ),
+                        title: Text('${row['titulo']}'),
+                        subtitle: Text(
+                          '${row['mensaje']}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onTap: () => Navigator.pop(sheet, row),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.pop(sheet, {'expand': true}),
+            icon: const Icon(Icons.open_in_full, size: 16),
+            label: const Text('Ver todas las notificaciones'),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (selected == null || !context.mounted) return;
+  if (selected['expand'] == true) {
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const NotificationsPage()));
+    return;
+  }
+  try {
+    await api.call(
+      '/notifications/${selected['id']}/read',
+      method: 'POST',
+      body: {},
+    );
+    if (context.mounted && selected['reserva_id'] is int) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ReservationDetail(id: selected['reserva_id'] as int),
+        ),
+      );
+    }
+  } catch (error) {
+    if (context.mounted) tell(context, error);
   }
 }

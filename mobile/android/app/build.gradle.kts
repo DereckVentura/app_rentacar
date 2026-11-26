@@ -12,6 +12,10 @@ val signingProperties = Properties()
 if (signingPropertiesFile.exists()) signingPropertiesFile.inputStream().use { signingProperties.load(it) }
 
 val appCompileSdk = flutter.compileSdkVersion
+dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:35.2.0"))
+    implementation("com.google.firebase:firebase-common")
+}
 rootProject.subprojects {
     if (name in setOf("firebase_core", "firebase_messaging")) {
         plugins.withId("com.android.library") {

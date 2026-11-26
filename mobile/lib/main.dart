@@ -6,7 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'core/api.dart';
-import 'core/android_push.dart';
+import 'core/native_push.dart';
 import 'core/session.dart';
 import 'core/theme/app_theme.dart';
 import 'features/account.dart';
@@ -75,6 +75,7 @@ class _AutoRentShellState extends State<AutoRentShell>
   bool polling = false, foreground = true;
   Timer? timer;
   StreamSubscription<RemoteMessage>? notificationTap;
+  StreamSubscription<RemoteMessage>? foregroundNotification;
   void openNotifications(RemoteMessage message) {
     if (!mounted ||
         AppScope.of(context).user == null ||
@@ -82,7 +83,8 @@ class _AutoRentShellState extends State<AutoRentShell>
       return;
     }
     Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => const NotificationsPage()));
+        .push(MaterialPageRoute(builder: (_) => const NotificationsPage()))
+        .then((_) => poll());
   }
 
   @override
@@ -90,9 +92,12 @@ class _AutoRentShellState extends State<AutoRentShell>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     timer = Timer.periodic(const Duration(seconds: 60), (_) => poll());
-    if (AndroidPush.supported) {
+    if (NativePush.supported) {
       notificationTap = FirebaseMessaging.onMessageOpenedApp.listen(
         openNotifications,
+      );
+      foregroundNotification = FirebaseMessaging.onMessage.listen(
+        (_) => poll(),
       );
     }
   }
@@ -102,13 +107,14 @@ class _AutoRentShellState extends State<AutoRentShell>
     super.didChangeDependencies();
     final id = AppScope.of(context).user?['id'] as int?;
     if (id != lastUser) {
+      if (lastUser == null && index == 3) index = 0;
       lastUser = id;
       lastNotice = null;
       unread = 0;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         poll();
-        if (mounted && id != null && AndroidPush.supported) {
-          AndroidPush.instance
+        if (mounted && id != null && NativePush.supported) {
+          NativePush.instance
               .restore(AppScope.of(context).api, id)
               .then((message) {
                 if (message != null) openNotifications(message);
@@ -129,6 +135,7 @@ class _AutoRentShellState extends State<AutoRentShell>
   void dispose() {
     timer?.cancel();
     notificationTap?.cancel();
+    foregroundNotification?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -199,10 +206,11 @@ class _AutoRentShellState extends State<AutoRentShell>
         icon: Icon(Icons.map_outlined),
         label: 'Mapa',
       ),
-      const NavigationDestination(
-        icon: Icon(Icons.person_outline),
-        label: 'Cuenta',
-      ),
+      if (s.user == null)
+        const NavigationDestination(
+          icon: Icon(Icons.person_outline),
+          label: 'Cuenta',
+        ),
       if (s.admin)
         const NavigationDestination(
           icon: Icon(Icons.dashboard_outlined),
@@ -221,18 +229,57 @@ class _AutoRentShellState extends State<AutoRentShell>
           ),
           if (s.user != null)
             IconButton(
-              tooltip: 'Mis avisos',
+              tooltip: unread > 0
+                  ? 'Notificaciones, $unread sin leer'
+                  : 'Notificaciones',
               onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const NotificationsPage()),
-                );
+                await showNoticePreview(context, s.api);
                 await poll();
               },
               icon: Badge(
                 isLabelVisible: unread > 0,
-                label: Text('$unread'),
+                label: Text(unread > 99 ? '99+' : '$unread'),
                 child: const Icon(Icons.notifications_outlined),
+              ),
+            ),
+          if (s.user case final user?)
+            Padding(
+              padding: const EdgeInsets.only(left: 4, right: 12),
+              child: MenuAnchor(
+                menuChildren: [
+                  MenuItemButton(
+                    leadingIcon: const Icon(Icons.manage_accounts_outlined),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                          appBar: AppBar(title: const Text('Mi cuenta')),
+                          body: const AccountPage(),
+                        ),
+                      ),
+                    ),
+                    child: const Text('Mi cuenta'),
+                  ),
+                  MenuItemButton(
+                    leadingIcon: const Icon(Icons.logout),
+                    onPressed: () async {
+                      await s.logout();
+                      if (mounted) setState(() => index = 0);
+                    },
+                    child: const Text('Cerrar sesión'),
+                  ),
+                ],
+                builder: (context, controller, child) => IconButton(
+                  tooltip: 'Abrir perfil',
+                  onPressed: () => controller.isOpen
+                      ? controller.close()
+                      : controller.open(),
+                  icon: PrivateProfilePhoto(
+                    key: ValueKey('${user['id']}:${user['foto']}'),
+                    api: s.api,
+                    hasPhoto: user['foto'] != null,
+                    size: 30,
+                  ),
+                ),
               ),
             ),
         ],
@@ -244,7 +291,7 @@ class _AutoRentShellState extends State<AutoRentShell>
               const CatalogPage(),
               const ReservationsPage(),
               const LocationsPage(),
-              const AccountPage(),
+              if (s.user == null) const AccountPage(),
               if (s.admin) const AdminPage(),
             ][selected],
           ),

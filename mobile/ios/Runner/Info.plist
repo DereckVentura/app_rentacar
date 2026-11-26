@@ -3,9 +3,15 @@
 <plist version="1.0">
 <dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Permite fotografiar tu licencia de conducir para verificar la reserva.</string>
+	<string>Permite tomar tu foto de perfil y adjuntar fotos para tu reserva.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Permite adjuntar las imágenes de tu licencia de conducir.</string>
+	<string>Permite importar tu foto de perfil y adjuntar imágenes para tu reserva.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>FirebaseMessagingAutoInitEnabled</key>
+	<false/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

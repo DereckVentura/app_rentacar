@@ -14,9 +14,11 @@ import '../core/session.dart';
 import '../core/theme/colors.dart';
 import '../shared/widgets/autorent_button.dart';
 import '../shared/widgets/autorent_text_field.dart';
+import '../shared/widgets/phone_field.dart';
 import '../shared/widgets/screen.dart';
 import 'access.dart';
 import 'legal.dart';
+import 'reservation_feedback.dart';
 
 const states = {
   'pendiente': 'Pendiente de validación',
@@ -61,11 +63,12 @@ Future<DateTime?> pickMoment(
   DateTime? initial, {
   bool Function(DateTime)? selectable,
 }) async {
-  final now = svNow(), first = svNow().subtract(const Duration(days: 1));
-  var candidate = initial != null && initial.isAfter(first)
+  final now = svNow(), first = DateUtils.dateOnly(svNow());
+  final last = first.add(const Duration(days: 730));
+  var candidate =
+      initial != null && !initial.isBefore(first) && !initial.isAfter(last)
       ? initial
-      : now.add(const Duration(days: 1));
-  final last = now.add(const Duration(days: 730));
+      : first;
   while (selectable != null &&
       !selectable(candidate) &&
       candidate.isBefore(last)) {
@@ -80,7 +83,8 @@ Future<DateTime?> pickMoment(
     initialDate: candidate,
     selectableDayPredicate: selectable,
     firstDate: first,
-    lastDate: now.add(const Duration(days: 730)),
+    lastDate: last,
+    currentDate: first,
   );
   if (date == null || !context.mounted) return null;
   final time = await showTimePicker(
@@ -130,29 +134,30 @@ class _ReservePageState extends State<ReservePage> {
       if (!mounted) return;
       final periods = (data['periods'] as List).cast<Json>();
       final now = svNow();
+      final today = DateUtils.dateOnly(now);
       final range = await showDateRangePicker(
         context: context,
-        firstDate: DateTime(now.year, now.month, now.day),
-        lastDate: now.add(const Duration(days: 730)),
+        firstDate: today,
+        lastDate: today.add(const Duration(days: 730)),
+        currentDate: today,
         helpText: 'Selecciona recogida y devolución',
         saveText: 'Elegir horas',
-        selectableDayPredicate: (day, selectedStart, selectedEnd) =>
-            !reservedDay(day, periods),
+        selectableDayPredicate: (day, selectedStart, selectedEnd) {
+          if (!fullyReservedDay(day, periods)) return true;
+          if (selectedStart == null ||
+              selectedEnd != null ||
+              !day.isAfter(selectedStart)) {
+            return false;
+          }
+          final midnight = svInstant(day);
+          return !reservedRange(
+            midnight.subtract(const Duration(seconds: 1)),
+            midnight,
+            periods,
+          );
+        },
       );
       if (range == null || !mounted) return;
-      for (
-        var day = range.start;
-        !day.isAfter(range.end);
-        day = day.add(const Duration(days: 1))
-      ) {
-        if (reservedDay(day, periods)) {
-          tell(
-            context,
-            'El rango incluye fechas reservadas. Elige otro período.',
-          );
-          return;
-        }
-      }
       final pickupTime = await showTimePicker(
         context: context,
         initialTime: TimeOfDay.fromDateTime(start ?? now),
@@ -163,21 +168,34 @@ class _ReservePageState extends State<ReservePage> {
         initialTime: TimeOfDay.fromDateTime(end ?? start ?? now),
       );
       if (returnTime == null || !mounted) return;
+      final pickupDate = range.start.copyWith(
+        hour: pickupTime.hour,
+        minute: pickupTime.minute,
+      );
+      final returnDate = range.end.copyWith(
+        hour: returnTime.hour,
+        minute: returnTime.minute,
+      );
+      final from = svInstant(pickupDate), to = svInstant(returnDate);
+      if (!from.isAfter(DateTime.now()) ||
+          !to.isAfter(from) ||
+          to.difference(from) > const Duration(days: 90)) {
+        tell(
+          context,
+          'Elige una recogida futura y una devolución posterior, con un máximo de 90 días.',
+        );
+        return;
+      }
+      if (reservedRange(from, to, periods)) {
+        tell(
+          context,
+          'El horario se cruza con otra reserva. Elige otras horas o fechas.',
+        );
+        return;
+      }
       changed(() {
-        start = DateTime(
-          range.start.year,
-          range.start.month,
-          range.start.day,
-          pickupTime.hour,
-          pickupTime.minute,
-        );
-        end = DateTime(
-          range.end.year,
-          range.end.month,
-          range.end.day,
-          returnTime.hour,
-          returnTime.minute,
-        );
+        start = pickupDate;
+        end = returnDate;
       });
     } catch (e) {
       if (mounted) tell(context, e);
@@ -784,6 +802,8 @@ class _ReservationDetailState extends State<ReservationDetail> {
                 label: 'Kilometraje ${returning ? 'de regreso' : 'de salida'}',
                 controller: km,
                 keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                maxLength: 9,
                 validator: requiredText,
               ),
               if (returning)
@@ -900,6 +920,14 @@ class _ReservationDetailState extends State<ReservationDetail> {
               ),
               if (r['review_note'] != null)
                 HintBox(r['review_note'].toString()),
+              if (r['estado'] == 'completada')
+                ReservationFeedback(
+                  key: ValueKey(r['review_status']),
+                  reservation: r,
+                  admin: session.admin,
+                  api: session.api,
+                  onSaved: () => dataKey.currentState?.reload(),
+                ),
               if (r['vence_en'] != null)
                 ReservationCountdown(
                   reservation: r,
@@ -1088,17 +1116,17 @@ Future<String?> askReservationPhone(BuildContext context, Api api) async {
   } catch (_) {}
   if (!context.mounted) return null;
   String entered = current;
+  final form = GlobalKey<FormState>();
   return showDialog<String>(
     context: context,
     builder: (dialog) => AlertDialog(
       title: const Text('¿Sigues usando este número?'),
-      content: TextFormField(
-        initialValue: current,
-        onChanged: (value) => entered = value,
-        keyboardType: TextInputType.phone,
-        decoration: const InputDecoration(
-          labelText: 'Celular',
-          hintText: '+503',
+      scrollable: true,
+      content: Form(
+        key: form,
+        child: PhoneField(
+          initialValue: current,
+          onChanged: (value) => entered = value,
         ),
       ),
       actions: [
@@ -1108,8 +1136,8 @@ Future<String?> askReservationPhone(BuildContext context, Api api) async {
         ),
         FilledButton(
           onPressed: () {
-            if (entered.trim().isNotEmpty) {
-              Navigator.pop(dialog, entered.trim());
+            if (form.currentState?.validate() == true) {
+              Navigator.pop(dialog, validatedPhone(entered));
             }
           },
           child: const Text('Confirmar mi celular'),
