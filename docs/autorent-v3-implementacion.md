@@ -2,6 +2,7 @@
 
 ## Actualización 0.4.1
 
+- Sites publicó la web y la API v3 en la versión 16, commit `09431f59448d1ce99ebd29bcbd9bfdc10587f6db`. Se verificaron en producción la salud de la API, el catálogo, el manifiesto, el service worker y el acceso a los instaladores. [AutoRent en producción](https://autorent-molina.lovosdavid.chatgpt.site/)
 - Android incorpora edición de cuenta, cambio de contraseña, recorte ajustable de fotografías, confirmación de celular, historial, comprobantes JPG y acciones administrativas de revisión y depósito. Google y las notificaciones en segundo plano dependen de la configuración de producción.
 - La API admite el envío de fotos del APK anterior para revisión manual. El APK anterior usa el teléfono registrado cuando no envía uno al reservar. La web y el APK 0.4.1 aplican el encuadre de ambas fotos.
 - La migración agrega columnas, tablas y disparadores. Conserva los estados históricos y mantiene las reservas antiguas en la cola de revisión según corresponda.

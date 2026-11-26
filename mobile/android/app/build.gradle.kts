@@ -1,3 +1,4 @@
+import com.android.build.api.variant.LibraryAndroidComponentsExtension
 import java.util.Properties
 
 plugins {
@@ -10,9 +11,20 @@ val signingPropertiesFile = rootProject.file("key.properties")
 val signingProperties = Properties()
 if (signingPropertiesFile.exists()) signingPropertiesFile.inputStream().use { signingProperties.load(it) }
 
+val appCompileSdk = flutter.compileSdkVersion
+rootProject.subprojects {
+    if (name in setOf("firebase_core", "firebase_messaging")) {
+        plugins.withId("com.android.library") {
+            extensions.configure<LibraryAndroidComponentsExtension> {
+                finalizeDsl { it.compileSdk = appCompileSdk }
+            }
+        }
+    }
+}
+
 android {
     namespace = "sv.autorent.autorent"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = appCompileSdk
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
