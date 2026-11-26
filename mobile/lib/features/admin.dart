@@ -263,7 +263,10 @@ class _VehicleEditorState extends State<VehicleEditor> {
       'precio_dia',
       'descripcion',
     ]) {
-      controls[key] = TextEditingController(text: v[key]?.toString());
+      final value = v[key];
+      controls[key] = TextEditingController(
+        text: value is Map ? value['nombre']?.toString() : value?.toString(),
+      );
     }
     for (final key in [
       'color',
@@ -544,53 +547,56 @@ class _VehicleEditorState extends State<VehicleEditor> {
             published = v;
           }),
         ),
-        field('descripcion', 'Descripción', lines: 3),
-        Text(
-          'Ficha del vehículo',
-          style: Theme.of(context).textTheme.titleLarge,
+        ExpansionTile(
+          title: const Text('Ficha técnica y más opciones'),
+          maintainState: true,
+          expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            field('descripcion', 'Descripción', lines: 3),
+            field('color', 'Color'),
+            field('version', 'Versión / equipamiento confirmado'),
+            select(
+              'Tracción',
+              traction,
+              {'FWD': '4×2 · Delantera', 'AWD': 'AWD · Integral', '4WD': '4×4'},
+              (v) {
+                traction = v;
+              },
+            ),
+            field('plazas', 'Asientos', number: true),
+            field('motor_litros', 'Cilindrada (litros)', number: true),
+            field('potencia_hp', 'Potencia (hp)', number: true),
+            select(
+              'Transmisión',
+              transmission,
+              {'CVT': 'CVT', 'automatica': 'Automática', 'manual': 'Manual'},
+              (v) {
+                transmission = v;
+              },
+            ),
+            select(
+              'Combustible',
+              fuel,
+              {
+                'gasolina': 'Gasolina',
+                'diesel': 'Diésel',
+                'hibrido': 'Híbrido',
+                'electrico': 'Eléctrico',
+              },
+              (v) {
+                fuel = v;
+              },
+            ),
+            SwitchListTile(
+              title: const Text('Año comprobado con documentación'),
+              value: verified,
+              onChanged: (v) => setState(() {
+                verified = v;
+              }),
+            ),
+            field('observaciones', 'Observaciones de la ficha', lines: 3),
+          ],
         ),
-        field('color', 'Color'),
-        field('version', 'Versión / equipamiento confirmado'),
-        select(
-          'Tracción',
-          traction,
-          {'FWD': '4×2 · Delantera', 'AWD': 'AWD · Integral', '4WD': '4×4'},
-          (v) {
-            traction = v;
-          },
-        ),
-        field('plazas', 'Asientos', number: true),
-        field('motor_litros', 'Cilindrada (litros)', number: true),
-        field('potencia_hp', 'Potencia (hp)', number: true),
-        select(
-          'Transmisión',
-          transmission,
-          {'CVT': 'CVT', 'automatica': 'Automática', 'manual': 'Manual'},
-          (v) {
-            transmission = v;
-          },
-        ),
-        select(
-          'Combustible',
-          fuel,
-          {
-            'gasolina': 'Gasolina',
-            'diesel': 'Diésel',
-            'hibrido': 'Híbrido',
-            'electrico': 'Eléctrico',
-          },
-          (v) {
-            fuel = v;
-          },
-        ),
-        SwitchListTile(
-          title: const Text('Año comprobado con documentación'),
-          value: verified,
-          onChanged: (v) => setState(() {
-            verified = v;
-          }),
-        ),
-        field('observaciones', 'Observaciones de la ficha', lines: 3),
         Text(
           'Fotos · la primera será la portada',
           style: Theme.of(context).textTheme.titleLarge,

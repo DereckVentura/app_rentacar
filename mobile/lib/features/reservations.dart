@@ -646,6 +646,36 @@ class _ReservationDetailState extends State<ReservationDetail> {
 
   String get receiptPath => '/reservations/${widget.id}/receipt';
 
+  Future<void> removeReservation(Json reservation) async {
+    final state = reservation['estado'];
+    final consequence = state == 'pagada' ? ' Se liberarán las fechas.' : '';
+    if (busy ||
+        !await confirm(
+          context,
+          'Eliminar reserva',
+          '¿Eliminar definitivamente la reserva ${reservation['codigo']}?$consequence',
+        ) ||
+        !mounted) {
+      return;
+    }
+    setState(() => busy = true);
+    try {
+      await AppScope.of(context).api.call(
+        '/admin/reservations/${widget.id}',
+        method: 'DELETE',
+        body: {'estado': state},
+      );
+      if (mounted) Navigator.pop(context);
+    } catch (error) {
+      if (mounted) {
+        tell(context, error);
+        dataKey.currentState?.reload();
+      }
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   Future<void> attachReceipt() async {
     final api = AppScope.of(context).api;
     setState(() => busy = true);
@@ -850,7 +880,24 @@ class _ReservationDetailState extends State<ReservationDetail> {
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
               SelectableText('Código ${r['codigo']}'),
-              reservationState(r['estado']),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  reservationState(r['estado']),
+                  if (session.admin &&
+                      const {
+                        'vencida',
+                        'denegada',
+                        'cancelada',
+                        'pagada',
+                      }.contains(r['estado']))
+                    IconButton(
+                      tooltip: 'Eliminar reserva',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: busy ? null : () => removeReservation(r),
+                    ),
+                ],
+              ),
               if (r['review_note'] != null)
                 HintBox(r['review_note'].toString()),
               if (r['vence_en'] != null)

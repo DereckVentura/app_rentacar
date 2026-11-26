@@ -48,4 +48,8 @@ El APK release se genera en `build/app/outputs/flutter-apk/app-release.apk`. La 
 
 Los tokens se guardan con `flutter_secure_storage`. La sesión se valida contra el servidor al restaurarse y requiere ingresar de nuevo si expiró. Para web se necesita HTTPS o localhost.
 
-AutoRent 0.4.1 usa el flujo de reservas de la API v3. La pantalla de cuenta permite activar avisos en segundo plano en Android cuando el servidor tiene configurado Firebase Cloud Messaging. El centro de avisos dentro de la app también funciona con el sondeo de la API.
+AutoRent 0.4.2 usa el flujo de reservas de la API v3. En **Mi cuenta → Mis avisos**, se pueden activar avisos en segundo plano cuando el servidor tiene configurado Firebase Cloud Messaging. El centro de avisos también consulta la API al abrir la app.
+
+Para habilitar FCM en producción, registra la app Android con el paquete `sv.autorent.autorent` en Firebase. En el entorno de AutoRent Sites, configura `AUTORENT_FIREBASE_CONFIG` con el JSON que contiene `apiKey`, `appId` de Android, `messagingSenderId` y `projectId`. Guarda la credencial de la cuenta de servicio del mismo proyecto como secreto `AUTORENT_FCM_CREDENTIALS`. La cuenta de servicio necesita permiso para enviar mediante FCM HTTP v1.
+
+Con el entorno publicado, comprueba que `/api/v1/notifications/android-config` devuelve la configuración pública de Android. Activa los avisos en un dispositivo de prueba, genera un aviso con una cuenta de prueba, deja la app en segundo plano y abre el aviso recibido para confirmar que lleva al centro de avisos.
