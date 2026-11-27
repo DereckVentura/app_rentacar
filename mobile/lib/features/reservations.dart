@@ -12,6 +12,7 @@ import '../core/availability.dart';
 import 'driver_license.dart';
 import '../core/session.dart';
 import '../core/theme/colors.dart';
+import '../core/validation.dart';
 import '../shared/widgets/autorent_button.dart';
 import '../shared/widgets/autorent_text_field.dart';
 import '../shared/widgets/phone_field.dart';
@@ -158,25 +159,56 @@ class _ReservePageState extends State<ReservePage> {
         },
       );
       if (range == null || !mounted) return;
+      const defaultTime = Duration(hours: 9);
+      final suggestedPickup = pickupSuggestion(
+        range.start,
+        periods,
+        now: DateTime.now(),
+        preferred: start == null
+            ? defaultTime
+            : Duration(hours: start!.hour, minutes: start!.minute),
+      );
+      if (suggestedPickup == null) {
+        tell(context, 'Ya no hay horarios de recogida libres ese día.');
+        return;
+      }
       final pickupTime = await showTimePicker(
         context: context,
-        initialTime: TimeOfDay.fromDateTime(start ?? now),
+        helpText: 'Hora de recogida',
+        initialTime: TimeOfDay.fromDateTime(suggestedPickup),
       );
       if (pickupTime == null || !mounted) return;
-      final returnTime = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(end ?? start ?? now),
-      );
-      if (returnTime == null || !mounted) return;
       final pickupDate = range.start.copyWith(
         hour: pickupTime.hour,
         minute: pickupTime.minute,
       );
+      final from = svInstant(pickupDate);
+      final suggestedReturn = returnSuggestion(
+        range.end,
+        from,
+        periods,
+        preferred: end == null
+            ? defaultTime
+            : Duration(hours: end!.hour, minutes: end!.minute),
+      );
+      if (suggestedReturn == null) {
+        tell(
+          context,
+          'No hay horario de devolución para esa recogida. Elige otras horas o fechas.',
+        );
+        return;
+      }
+      final returnTime = await showTimePicker(
+        context: context,
+        helpText: 'Hora de devolución',
+        initialTime: TimeOfDay.fromDateTime(suggestedReturn),
+      );
+      if (returnTime == null || !mounted) return;
       final returnDate = range.end.copyWith(
         hour: returnTime.hour,
         minute: returnTime.minute,
       );
-      final from = svInstant(pickupDate), to = svInstant(returnDate);
+      final to = svInstant(returnDate);
       if (!from.isAfter(DateTime.now()) ||
           !to.isAfter(from) ||
           to.difference(from) > const Duration(days: 90)) {
@@ -799,12 +831,11 @@ class _ReservationDetailState extends State<ReservationDetail> {
               if (!returning && r['documento'] != null)
                 DriverLicenseReview(document: r['documento'] as Json),
               AutoRentTextField(
-                label: 'Kilometraje ${returning ? 'de regreso' : 'de salida'}',
+                label:
+                    'Kilometraje ${returning ? 'de regreso' : 'de salida'} (máx. 999.999 km)',
                 controller: km,
                 keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                maxLength: 9,
-                validator: requiredText,
+                validator: mileageError,
               ),
               if (returning)
                 DropdownButtonFormField<int>(
@@ -833,12 +864,7 @@ class _ReservationDetailState extends State<ReservationDetail> {
               ),
             ],
             save: () async {
-              final mileage = int.tryParse(km.text.trim());
-              if (mileage == null || mileage < 0) {
-                throw const ApiException(
-                  'Escribe un kilometraje entero válido.',
-                );
-              }
+              final mileage = int.parse(km.text.trim());
               if (!returning && r['documento'] != null) {
                 if (!await confirm(
                   context,

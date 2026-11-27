@@ -1,6 +1,7 @@
 import type { FleetInput, FleetPatch, VehicleFacts } from '../models/fleet.model.js';
 import { emptyFacts } from '../models/fleet.model.js';
 import { ApiError } from '../utils/api-error.js';
+import { parseMileage } from './mileage.validator.js';
 
 function invalid(field: string): never {
   throw new ApiError(400, 'VALIDATION_ERROR', `Revisa el campo ${field}.`);
@@ -91,7 +92,7 @@ export function parseFleetPatch(value: unknown): FleetPatch {
   if ('categoria_id' in body) result.categoria_id = integer(body.categoria_id, 'categoria_id', 1, 4294967295);
   if ('anio' in body) result.anio = integer(body.anio, 'anio', 1886, new Date().getUTCFullYear() + 1);
   if ('placa' in body) result.placa = body.placa === null ? null : text(body.placa, 'placa', 20).toUpperCase();
-  if ('kilometraje' in body) result.kilometraje = body.kilometraje === null ? null : integer(body.kilometraje, 'kilometraje', 0, 4294967295);
+  if ('kilometraje' in body) result.kilometraje = body.kilometraje === null ? null : parseMileage(body.kilometraje);
   if ('ubicacion_actual_id' in body) result.ubicacion_actual_id = body.ubicacion_actual_id === null ? null : integer(body.ubicacion_actual_id, 'ubicacion_actual_id', 1, 4294967295);
   if ('precio_dia' in body) {
     if (body.precio_dia === null) result.precio_dia = null;

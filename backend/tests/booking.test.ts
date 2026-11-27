@@ -22,6 +22,8 @@ test('ubicaciones y operaciones rechazan valores manipulados',()=>{
   assert.equal(parseLocation(location).longitud,'-88.1');
   for(const bad of [{...location,latitud:'91'},{...location,longitud:'Infinity'},{...location,activo:'true'},{...location,tipo:'otro'}])assert.throws(()=>parseLocation(bad));
   assert.throws(()=>parseCheckout({kilometraje:-1}));assert.throws(()=>parseReturn({kilometraje:10,ubicacion_id:0}));
+  assert.equal(parseCheckout({kilometraje:999999}).kilometraje,999999);
+  assert.throws(()=>parseReturn({kilometraje:1000000,ubicacion_id:1}));
 });
 test('alojamiento exige orígenes exactos, TLS verificable y fotos configuradas completamente',()=>{
   const config=parseDeployment({CORS_ORIGINS:'https://autorent.example',DB_SSL:'true',DB_POOL_SIZE:'8'});

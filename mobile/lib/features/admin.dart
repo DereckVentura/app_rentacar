@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../core/api.dart';
 import '../core/session.dart';
+import '../core/validation.dart';
 import '../shared/widgets/autorent_button.dart';
 import '../shared/widgets/autorent_text_field.dart';
 import '../shared/widgets/screen.dart';
@@ -507,7 +508,12 @@ class _VehicleEditorState extends State<VehicleEditor> {
           validator: (v) => v == null ? 'Selecciona una categoría.' : null,
         ),
         field('placa', 'Placa (pendiente si se deja vacío)'),
-        field('kilometraje', 'Kilometraje actual', number: true),
+        AutoRentTextField(
+          label: 'Kilometraje actual (máx. 999.999 km)',
+          controller: controls['kilometraje'],
+          keyboardType: TextInputType.number,
+          validator: (value) => mileageError(value, allowEmpty: true),
+        ),
         field('precio_dia', 'Tarifa diaria USD', number: true),
         DropdownButtonFormField<int>(
           initialValue: location ?? 0,

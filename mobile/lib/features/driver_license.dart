@@ -17,15 +17,29 @@ class DriverLicenseForm extends StatefulWidget {
 }
 
 class _DriverLicenseFormState extends State<DriverLicenseForm> {
-  final holder = TextEditingController(), year = TextEditingController();
-  int? month;
+  static const months = [
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Septiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre',
+  ];
+  final holder = TextEditingController();
+  final firstYear = svNow().year;
+  int? month, year;
   Uint8List? front, back;
   bool consent = false, busy = false, saved = false;
   String? error;
   @override
   void dispose() {
     holder.dispose();
-    year.dispose();
     super.dispose();
   }
 
@@ -104,19 +118,21 @@ class _DriverLicenseFormState extends State<DriverLicenseForm> {
                 for (var value = 1; value <= 12; value++)
                   DropdownMenuItem(
                     value: value,
-                    child: Text(value.toString().padLeft(2, '0')),
+                    child: Text(months[value - 1]),
                   ),
               ],
               onChanged: busy ? null : (value) => setState(() => month = value),
             ),
-            TextField(
-              controller: year,
-              keyboardType: TextInputType.number,
-              maxLength: 4,
+            DropdownButtonFormField<int>(
+              initialValue: year,
               decoration: const InputDecoration(
                 labelText: 'Año de vencimiento',
-                hintText: 'AAAA',
               ),
+              items: [
+                for (var value = firstYear; value <= firstYear + 30; value++)
+                  DropdownMenuItem(value: value, child: Text('$value')),
+              ],
+              onChanged: busy ? null : (value) => setState(() => year = value),
             ),
             for (final reverse in [false, true]) ...[
               Text(
@@ -186,18 +202,28 @@ class _DriverLicenseFormState extends State<DriverLicenseForm> {
               onPressed: busy
                   ? null
                   : () async {
-                      final enteredYear = int.tryParse(year.text);
+                      final enteredYear = year, enteredMonth = month;
                       if (front == null ||
                           back == null ||
                           holder.text.trim().isEmpty ||
-                          month == null ||
+                          enteredMonth == null ||
                           enteredYear == null ||
-                          enteredYear < 2000 ||
-                          enteredYear > DateTime.now().year + 30 ||
                           !consent) {
                         setState(
                           () => error = 'Completa los datos, adjunta ambas caras y autoriza su revisión.',
                         );
+                        return;
+                      }
+                      final expiration = DateTime.utc(
+                        enteredYear,
+                        enteredMonth + 1,
+                        0,
+                      );
+                      final today = svNow();
+                      if (expiration.isBefore(
+                        DateTime.utc(today.year, today.month, today.day),
+                      )) {
+                        setState(() => error = 'La licencia está vencida.');
                         return;
                       }
                       final api = AppScope.of(context).api;
@@ -213,11 +239,10 @@ class _DriverLicenseFormState extends State<DriverLicenseForm> {
                           body: {
                             'titular': holder.text.trim(),
                             'pais': 'El Salvador',
-                            'vencimiento': DateTime(
-                              enteredYear,
-                              month! + 1,
-                              0,
-                            ).toIso8601String().split('T').first,
+                            'vencimiento': expiration
+                                .toIso8601String()
+                                .split('T')
+                                .first,
                             'consentimiento': true,
                             'encuadrada': true,
                             'frente': base64Encode(front!),
@@ -249,9 +274,13 @@ class DriverLicenseReview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final api = AppScope.of(context).api;
+    final expires = DateTime.tryParse('${document['vencimiento']}');
+    final monthYear = expires == null
+        ? '—'
+        : '${expires.month.toString().padLeft(2, '0')}/${expires.year}';
     return Column(
       children: [
-        Text('${document['titular']} · Vence ${document['vencimiento']}'),
+        Text('${document['titular']} · Vence $monthYear'),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

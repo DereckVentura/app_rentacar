@@ -1,6 +1,7 @@
 import type { CheckoutInput, LocationInput, ReservationInput, ReturnInput } from '../models/booking.model.js';
 import { parseVehicleDetailQuery } from './vehicle.validator.js';
 import { ApiError } from '../utils/api-error.js';
+import { parseMileage } from './mileage.validator.js';
 
 export function badInput(message: string): never { throw new ApiError(400, 'VALIDATION_ERROR', message); }
 export function bodyObject(value: unknown, keys: string[]): Record<string, unknown> {
@@ -34,11 +35,11 @@ export function parseIdempotency(value: unknown): string {
 }
 export function parseCheckout(value: unknown): CheckoutInput {
   const body = bodyObject(value, ['kilometraje', 'observaciones', 'licencia_valida']);
-  return { licencia_valida:body.licencia_valida===true, kilometraje: wholeNumber(body.kilometraje, 0), observaciones: notes(body.observaciones) };
+  return { licencia_valida:body.licencia_valida===true, kilometraje: parseMileage(body.kilometraje), observaciones: notes(body.observaciones) };
 }
 export function parseReturn(value: unknown): ReturnInput {
   const body = bodyObject(value, ['kilometraje', 'ubicacion_id', 'observaciones']);
-  return { kilometraje: wholeNumber(body.kilometraje, 0), ubicacion_id: wholeNumber(body.ubicacion_id), observaciones: notes(body.observaciones) };
+  return { kilometraje: parseMileage(body.kilometraje), ubicacion_id: wholeNumber(body.ubicacion_id), observaciones: notes(body.observaciones) };
 }
 export function parseCancellation(value: unknown): string | null {
   return notes(bodyObject(value ?? {}, ['motivo']).motivo);

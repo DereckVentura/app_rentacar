@@ -12,6 +12,7 @@ import 'package:autorent/core/session.dart';
 import 'package:autorent/core/theme/app_theme.dart';
 import 'package:autorent/features/access.dart';
 import 'package:autorent/features/catalog.dart';
+import 'package:autorent/features/driver_license.dart';
 import 'package:autorent/features/legal.dart';
 import 'package:autorent/shared/widgets/screen.dart';
 
@@ -85,6 +86,34 @@ void main() {
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
     GoogleFonts.config.allowRuntimeFetching = false;
+  });
+  testWidgets('la licencia permite seleccionar solo mes y año de vencimiento', (
+    tester,
+  ) async {
+    final api = Api();
+    await tester.pumpWidget(
+      wrap(
+        Session(api),
+        SingleChildScrollView(child: DriverLicenseForm(onSaved: (_) {})),
+      ),
+    );
+    final selectors = find.byType(DropdownButtonFormField<int>);
+    expect(selectors, findsNWidgets(2));
+    expect(find.text('Mes de vencimiento'), findsOneWidget);
+    expect(find.text('Año de vencimiento'), findsOneWidget);
+    await tester.tap(selectors.first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Febrero').last);
+    await tester.pumpAndSettle();
+    await tester.tap(selectors.last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('${svNow().year + 1}').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Febrero'), findsOneWidget);
+    expect(find.text('${svNow().year + 1}'), findsOneWidget);
+    expect(find.byType(DatePickerDialog), findsNothing);
+    expect(find.byType(TimePickerDialog), findsNothing);
+    api.dispose();
   });
   test(
     'horas de El Salvador permanecen iguales desde cualquier dispositivo',

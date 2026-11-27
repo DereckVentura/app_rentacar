@@ -1,5 +1,13 @@
 import 'dart:convert';
 
+String? mileageError(String? input, {bool allowEmpty = false}) {
+  final value = input?.trim() ?? '';
+  if (value.isEmpty && allowEmpty) return null;
+  return RegExp(r'^[0-9]{1,6}$').hasMatch(value)
+      ? null
+      : 'Ingresa un kilometraje entero de 0 a 999.999 km.';
+}
+
 String? emailError(String? input) {
   final value = input?.trim() ?? '';
   return value.length > 254 ||

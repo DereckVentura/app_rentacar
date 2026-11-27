@@ -26,6 +26,44 @@ void main() {
     expect(fullyReservedDay(DateTime(2026, 11, 29), periods), true);
     expect(fullyReservedDay(DateTime(2026, 11, 30), periods), false);
     final end = DateTime.parse('2026-12-01T15:00:00Z');
+    final now = DateTime.parse('2026-11-27T22:00:00Z');
+    const preferred = Duration(hours: 9);
+    expect(
+      pickupSuggestion(
+        DateTime(2026, 11, 29),
+        periods,
+        now: now,
+        preferred: preferred,
+      ),
+      isNull,
+    );
+    expect(
+      pickupSuggestion(
+        DateTime(2026, 11, 30),
+        periods,
+        now: now,
+        preferred: preferred,
+      ),
+      DateTime.utc(2026, 11, 30, 22, 13),
+    );
+    expect(
+      pickupSuggestion(
+        DateTime(2026, 11, 27),
+        [],
+        now: now,
+        preferred: preferred,
+      ),
+      DateTime.utc(2026, 11, 27, 16, 1),
+    );
+    expect(
+      returnSuggestion(
+        DateTime(2026, 12, 1),
+        DateTime.parse('2026-12-01T04:13:00Z'),
+        periods,
+        preferred: const Duration(hours: 12),
+      ),
+      DateTime.utc(2026, 12, 1, 9),
+    );
     expect(
       reservedRange(DateTime.parse('2026-12-01T04:13:00Z'), end, periods),
       false,

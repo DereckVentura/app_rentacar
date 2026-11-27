@@ -36,6 +36,10 @@ test('fleet rejects invalid prices, mileage, read-only fields and missing identi
 
 test('fleet patch retains explicit null and normalizes exact prices', () => {
   assert.deepEqual(parseFleetPatch({ precio_dia: '55.5', kilometraje: 0, placa: null }), { precio_dia: '55.50', kilometraje: 0, placa: null });
+  assert.equal(parseFleetPatch({ kilometraje: 999999 }).kilometraje, 999999);
+  for (const kilometraje of [1000000, -1, 20.5, '999999', false]) {
+    assert.throws(() => parseFleetPatch({ kilometraje }), ApiError);
+  }
   assert.throws(() => parseFleetPatch({}), ApiError);
 });
 
